@@ -1,0 +1,24 @@
+global:
+  resolve_timeout: 1m
+
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'alert-bridge'
+
+receivers:
+  - name: 'alert-bridge'
+    webhook_configs:
+      - url: 'http://alert-bridge:8080/api/v1/alerts'
+        send_resolved: true
+        http_config:
+          follow_redirects: true
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'cluster', 'service']

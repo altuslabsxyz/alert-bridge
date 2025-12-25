@@ -1,0 +1,36 @@
+groups:
+  - name: test_alerts
+    interval: 10s
+    rules:
+      - alert: HighMemoryUsage
+        expr: up == 1
+        for: 5s
+        labels:
+          severity: warning
+          team: platform
+          service: test-service
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is above 80% on {{ $labels.instance }}"
+
+      - alert: ServiceDown
+        expr: up == 0
+        for: 5s
+        labels:
+          severity: critical
+          team: platform
+          service: test-service
+        annotations:
+          summary: "Service is down"
+          description: "{{ $labels.job }} on {{ $labels.instance }} is down"
+
+      - alert: HighCPULoad
+        expr: up == 1
+        for: 10s
+        labels:
+          severity: warning
+          team: platform
+          service: test-service
+        annotations:
+          summary: "High CPU load"
+          description: "CPU load is above 70% on {{ $labels.instance }}"
