@@ -15,10 +15,11 @@ NC='\033[0m'
 mkdir -p test/data
 
 echo -e "\n${YELLOW}[1/6] Starting services...${NC}"
+docker-compose -f docker-compose.test.yaml pull
 docker-compose -f docker-compose.test.yaml up -d
 
 echo -e "\n${YELLOW}[2/6] Waiting for services to be ready...${NC}"
-sleep 15
+sleep 5
 
 # Check services health
 echo -e "\n${YELLOW}[3/6] Checking service health...${NC}"
@@ -110,3 +111,7 @@ echo "  docker-compose -f docker-compose.test.yaml down"
 echo ""
 echo "To view logs:"
 echo "  docker-compose -f docker-compose.test.yaml logs -f"
+echo "Run:"
+echo "  curl -X POST http://localhost:9093/api/v2/alerts \
+    -H "Content-Type: application/json" \
+    -d '[{"labels":{"alertname":"TestAlert","severity":"critical"},"annotations":{"summary":"Test"}}]'"

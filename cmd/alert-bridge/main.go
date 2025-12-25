@@ -20,18 +20,28 @@ import (
 	"github.com/qj0r9j0vc2/alert-bridge/internal/usecase/alert"
 	pdUseCase "github.com/qj0r9j0vc2/alert-bridge/internal/usecase/pagerduty"
 	slackUseCase "github.com/qj0r9j0vc2/alert-bridge/internal/usecase/slack"
+	"github.com/spf13/viper"
 )
 
 func main() {
 	// Setup logger
 	logger := setupLogger("info", "json")
 
-	// Load configuration
+	// Load configuration with Viper
 	configPath := os.Getenv("CONFIG_PATH")
 	if configPath == "" {
 		configPath = "config/config.yaml"
 	}
 
+	v := viper.New()
+	v.SetConfigFile(configPath)
+
+	if err := v.ReadInConfig(); err != nil {
+		logger.Error("failed to read config file", "error", err, "path", configPath)
+		os.Exit(1)
+	}
+
+	// Load initial config
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		logger.Error("failed to load config", "error", err)
@@ -39,11 +49,17 @@ func main() {
 	}
 
 	logger.Info("configuration loaded",
+		"config_path", configPath,
 		"slack_enabled", cfg.IsSlackEnabled(),
 		"pagerduty_enabled", cfg.IsPagerDutyEnabled(),
 		"storage_type", cfg.Storage.Type,
 		"server_port", cfg.Server.Port,
 	)
+
+	// Create ConfigManager and Watcher for hot reload
+	configManager := config.NewConfigManager(cfg, v, configPath, logger)
+	watcher := config.NewWatcher(v, configManager, logger)
+	watcher.Start()
 
 	// Initialize repositories based on storage type
 	var alertRepo repository.AlertRepository

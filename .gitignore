@@ -45,3 +45,6 @@ tmp/
 
 # GoReleaser
 dist/
+
+# Test
+/test/data/
