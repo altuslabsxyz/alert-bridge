@@ -15,6 +15,7 @@ type Handlers struct {
 	SlackEvents       *handler.SlackEventsHandler
 	PagerDutyWebhook  *handler.PagerDutyWebhookHandler
 	Health            *handler.HealthHandler
+	Reload            *handler.ReloadHandler
 }
 
 // NewRouter creates the HTTP router with all handlers.
@@ -25,6 +26,11 @@ func NewRouter(handlers *Handlers, logger *slog.Logger) http.Handler {
 	mux.Handle("/health", handlers.Health)
 	mux.Handle("/ready", handlers.Health)
 	mux.Handle("/", handlers.Health) // Root path returns health
+
+	// Admin endpoints
+	if handlers.Reload != nil {
+		mux.Handle("/-/reload", handlers.Reload)
+	}
 
 	// Webhook endpoints
 	if handlers.Alertmanager != nil {

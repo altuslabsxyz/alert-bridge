@@ -11,11 +11,12 @@ import (
 
 // ConfigManager manages thread-safe configuration with hot reload support.
 type ConfigManager struct {
-	mu         sync.RWMutex
-	config     *Config
-	viper      *viper.Viper
-	configPath string
-	logger     *slog.Logger
+	mu              sync.RWMutex
+	config          *Config
+	viper           *viper.Viper
+	configPath      string
+	logger          *slog.Logger
+	onReloadSuccess func(*Config) // Callback after successful reload
 }
 
 // NewConfigManager creates a new ConfigManager with the initial configuration.
@@ -26,6 +27,13 @@ func NewConfigManager(cfg *Config, v *viper.Viper, configPath string, logger *sl
 		configPath: configPath,
 		logger:     logger,
 	}
+}
+
+// SetReloadCallback sets a callback function to be called after successful reload.
+func (cm *ConfigManager) SetReloadCallback(callback func(*Config)) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.onReloadSuccess = callback
 }
 
 // Get returns a copy of the current configuration (thread-safe read).
@@ -88,6 +96,11 @@ func (cm *ConfigManager) TryReload() error {
 				},
 			)
 		}
+	}
+
+	// Call reload callback if set
+	if cm.onReloadSuccess != nil {
+		cm.onReloadSuccess(newCfg)
 	}
 
 	return nil

@@ -24,42 +24,55 @@ import (
 )
 
 func main() {
-	// Setup logger
-	logger := setupLogger("info", "json")
-
-	// Load configuration with Viper
+	// Load configuration first (to get logging settings)
 	configPath := os.Getenv("CONFIG_PATH")
 	if configPath == "" {
 		configPath = "config/config.yaml"
 	}
 
-	v := viper.New()
-	v.SetConfigFile(configPath)
-
-	if err := v.ReadInConfig(); err != nil {
-		logger.Error("failed to read config file", "error", err, "path", configPath)
-		os.Exit(1)
-	}
-
-	// Load initial config
 	cfg, err := config.Load(configPath)
 	if err != nil {
-		logger.Error("failed to load config", "error", err)
+		// Fallback logger for startup errors
+		fallbackLogger := setupLogger("info", "json")
+		fallbackLogger.Error("failed to load config", "error", err)
 		os.Exit(1)
 	}
+
+	// Setup logger with config values
+	logger := setupLogger(cfg.Logging.Level, cfg.Logging.Format)
 
 	logger.Info("configuration loaded",
 		"config_path", configPath,
+		"logging_level", cfg.Logging.Level,
+		"logging_format", cfg.Logging.Format,
 		"slack_enabled", cfg.IsSlackEnabled(),
 		"pagerduty_enabled", cfg.IsPagerDutyEnabled(),
 		"storage_type", cfg.Storage.Type,
 		"server_port", cfg.Server.Port,
 	)
 
-	// Create ConfigManager and Watcher for hot reload
+	// Create Viper for ConfigManager
+	v := viper.New()
+	v.SetConfigFile(configPath)
+	if err := v.ReadInConfig(); err != nil {
+		logger.Error("failed to initialize viper", "error", err)
+		os.Exit(1)
+	}
+
+	// Create ConfigManager for manual reload
 	configManager := config.NewConfigManager(cfg, v, configPath, logger)
-	watcher := config.NewWatcher(v, configManager, logger)
-	watcher.Start()
+
+	// Set reload callback to update logger dynamically
+	var loggerPtr = &logger
+	configManager.SetReloadCallback(func(newCfg *config.Config) {
+		// Reload logger if logging config changed
+		newLogger := setupLogger(newCfg.Logging.Level, newCfg.Logging.Format)
+		*loggerPtr = newLogger
+		newLogger.Info("logger reloaded",
+			"level", newCfg.Logging.Level,
+			"format", newCfg.Logging.Format,
+		)
+	})
 
 	// Initialize repositories based on storage type
 	var alertRepo repository.AlertRepository
@@ -168,6 +181,7 @@ func main() {
 	// Initialize handlers
 	handlers := &server.Handlers{
 		Health: handler.NewHealthHandler(),
+		Reload: handler.NewReloadHandler(configManager, logger),
 	}
 
 	// Alertmanager handler
