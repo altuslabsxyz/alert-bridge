@@ -33,17 +33,22 @@ func (r *AlertRepository) Save(ctx context.Context, alert *entity.Alert) error {
 		return fmt.Errorf("marshaling annotations: %w", err)
 	}
 
+	externalReferencesJSON, err := marshalJSON(alert.ExternalReferences)
+	if err != nil {
+		return fmt.Errorf("marshaling external_references: %w", err)
+	}
+
 	query := `
 		INSERT INTO alerts (
 			id, fingerprint, name, instance, target, summary, description,
 			severity, state, labels, annotations,
-			slack_message_id, pagerduty_incident_id,
+			external_references,
 			fired_at, acked_at, acked_by, resolved_at,
 			version, created_at, updated_at
 		) VALUES (
 			?, ?, ?, ?, ?, ?, ?,
 			?, ?, ?, ?,
-			?, ?,
+			?,
 			?, ?, ?, ?,
 			1, ?, ?
 		)
@@ -61,8 +66,7 @@ func (r *AlertRepository) Save(ctx context.Context, alert *entity.Alert) error {
 		string(alert.State),
 		labelsJSON,
 		annotationsJSON,
-		nullString(alert.SlackMessageID),
-		nullString(alert.PagerDutyIncidentID),
+		externalReferencesJSON,
 		timeToTimestamp(alert.FiredAt),
 		nullTime(alert.AckedAt),
 		nullString(alert.AckedBy),
@@ -88,7 +92,7 @@ func (r *AlertRepository) FindByID(ctx context.Context, id string) (*entity.Aler
 		SELECT
 			id, fingerprint, name, instance, target, summary, description,
 			severity, state, labels, annotations,
-			slack_message_id, pagerduty_incident_id,
+			external_references,
 			fired_at, acked_at, acked_by, resolved_at,
 			version, created_at, updated_at
 		FROM alerts
@@ -96,8 +100,8 @@ func (r *AlertRepository) FindByID(ctx context.Context, id string) (*entity.Aler
 	`
 
 	var alert entity.Alert
-	var labelsJSON, annotationsJSON string
-	var slackMessageID, pagerDutyIncidentID, ackedBy sql.NullString
+	var labelsJSON, annotationsJSON, externalReferencesJSON string
+	var ackedBy sql.NullString
 	var ackedAt, resolvedAt sql.NullTime
 	var version int
 
@@ -113,8 +117,7 @@ func (r *AlertRepository) FindByID(ctx context.Context, id string) (*entity.Aler
 		&alert.State,
 		&labelsJSON,
 		&annotationsJSON,
-		&slackMessageID,
-		&pagerDutyIncidentID,
+		&externalReferencesJSON,
 		&alert.FiredAt,
 		&ackedAt,
 		&ackedBy,
@@ -138,10 +141,11 @@ func (r *AlertRepository) FindByID(ctx context.Context, id string) (*entity.Aler
 	if err := unmarshalJSON(annotationsJSON, &alert.Annotations); err != nil {
 		return nil, fmt.Errorf("unmarshaling annotations: %w", err)
 	}
+	if err := unmarshalJSON(externalReferencesJSON, &alert.ExternalReferences); err != nil {
+		return nil, fmt.Errorf("unmarshaling external_references: %w", err)
+	}
 
 	// Set nullable fields
-	alert.SlackMessageID = stringValue(slackMessageID)
-	alert.PagerDutyIncidentID = stringValue(pagerDutyIncidentID)
 	alert.AckedBy = stringValue(ackedBy)
 	alert.AckedAt = timePtr(ackedAt)
 	alert.ResolvedAt = timePtr(resolvedAt)
@@ -156,7 +160,7 @@ func (r *AlertRepository) FindByFingerprint(ctx context.Context, fingerprint str
 		SELECT
 			id, fingerprint, name, instance, target, summary, description,
 			severity, state, labels, annotations,
-			slack_message_id, pagerduty_incident_id,
+			external_references,
 			fired_at, acked_at, acked_by, resolved_at,
 			version, created_at, updated_at
 		FROM alerts
@@ -173,27 +177,27 @@ func (r *AlertRepository) FindByFingerprint(ctx context.Context, fingerprint str
 	return r.scanAlerts(rows)
 }
 
-// FindBySlackMessageID finds an alert by its Slack message reference.
+// FindByExternalReference finds an alert by a specific external reference key and value.
 // Returns nil, nil if not found.
-func (r *AlertRepository) FindBySlackMessageID(ctx context.Context, messageID string) (*entity.Alert, error) {
+func (r *AlertRepository) FindByExternalReference(ctx context.Context, key, value string) (*entity.Alert, error) {
 	query := `
 		SELECT
 			id, fingerprint, name, instance, target, summary, description,
 			severity, state, labels, annotations,
-			slack_message_id, pagerduty_incident_id,
+			external_references,
 			fired_at, acked_at, acked_by, resolved_at,
 			version, created_at, updated_at
 		FROM alerts
-		WHERE slack_message_id = ?
+		WHERE JSON_EXTRACT(external_references, CONCAT('$.', ?)) = ?
 	`
 
 	var alert entity.Alert
-	var labelsJSON, annotationsJSON string
-	var slackMessageID, pagerDutyIncidentID, ackedBy sql.NullString
+	var labelsJSON, annotationsJSON, externalReferencesJSON string
+	var ackedBy sql.NullString
 	var ackedAt, resolvedAt sql.NullTime
 	var version int
 
-	err := r.db.Replica().QueryRowContext(ctx, query, messageID).Scan(
+	err := r.db.Replica().QueryRowContext(ctx, query, key, value).Scan(
 		&alert.ID,
 		&alert.Fingerprint,
 		&alert.Name,
@@ -205,8 +209,7 @@ func (r *AlertRepository) FindBySlackMessageID(ctx context.Context, messageID st
 		&alert.State,
 		&labelsJSON,
 		&annotationsJSON,
-		&slackMessageID,
-		&pagerDutyIncidentID,
+		&externalReferencesJSON,
 		&alert.FiredAt,
 		&ackedAt,
 		&ackedBy,
@@ -220,7 +223,7 @@ func (r *AlertRepository) FindBySlackMessageID(ctx context.Context, messageID st
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("querying alert by slack message ID: %w", err)
+		return nil, fmt.Errorf("querying alert by external reference %s: %w", key, err)
 	}
 
 	// Deserialize JSON fields
@@ -230,78 +233,11 @@ func (r *AlertRepository) FindBySlackMessageID(ctx context.Context, messageID st
 	if err := unmarshalJSON(annotationsJSON, &alert.Annotations); err != nil {
 		return nil, fmt.Errorf("unmarshaling annotations: %w", err)
 	}
-
-	// Set nullable fields
-	alert.SlackMessageID = stringValue(slackMessageID)
-	alert.PagerDutyIncidentID = stringValue(pagerDutyIncidentID)
-	alert.AckedBy = stringValue(ackedBy)
-	alert.AckedAt = timePtr(ackedAt)
-	alert.ResolvedAt = timePtr(resolvedAt)
-
-	return &alert, nil
-}
-
-// FindByPagerDutyIncidentID finds an alert by its PagerDuty incident reference.
-// Returns nil, nil if not found.
-func (r *AlertRepository) FindByPagerDutyIncidentID(ctx context.Context, incidentID string) (*entity.Alert, error) {
-	query := `
-		SELECT
-			id, fingerprint, name, instance, target, summary, description,
-			severity, state, labels, annotations,
-			slack_message_id, pagerduty_incident_id,
-			fired_at, acked_at, acked_by, resolved_at,
-			version, created_at, updated_at
-		FROM alerts
-		WHERE pagerduty_incident_id = ?
-	`
-
-	var alert entity.Alert
-	var labelsJSON, annotationsJSON string
-	var slackMessageID, pagerDutyIncidentID, ackedBy sql.NullString
-	var ackedAt, resolvedAt sql.NullTime
-	var version int
-
-	err := r.db.Replica().QueryRowContext(ctx, query, incidentID).Scan(
-		&alert.ID,
-		&alert.Fingerprint,
-		&alert.Name,
-		&alert.Instance,
-		&alert.Target,
-		&alert.Summary,
-		&alert.Description,
-		&alert.Severity,
-		&alert.State,
-		&labelsJSON,
-		&annotationsJSON,
-		&slackMessageID,
-		&pagerDutyIncidentID,
-		&alert.FiredAt,
-		&ackedAt,
-		&ackedBy,
-		&resolvedAt,
-		&version,
-		&alert.CreatedAt,
-		&alert.UpdatedAt,
-	)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("querying alert by pagerduty incident ID: %w", err)
-	}
-
-	// Deserialize JSON fields
-	if err := unmarshalJSON(labelsJSON, &alert.Labels); err != nil {
-		return nil, fmt.Errorf("unmarshaling labels: %w", err)
-	}
-	if err := unmarshalJSON(annotationsJSON, &alert.Annotations); err != nil {
-		return nil, fmt.Errorf("unmarshaling annotations: %w", err)
+	if err := unmarshalJSON(externalReferencesJSON, &alert.ExternalReferences); err != nil {
+		return nil, fmt.Errorf("unmarshaling external_references: %w", err)
 	}
 
 	// Set nullable fields
-	alert.SlackMessageID = stringValue(slackMessageID)
-	alert.PagerDutyIncidentID = stringValue(pagerDutyIncidentID)
 	alert.AckedBy = stringValue(ackedBy)
 	alert.AckedAt = timePtr(ackedAt)
 	alert.ResolvedAt = timePtr(resolvedAt)
@@ -335,6 +271,11 @@ func (r *AlertRepository) Update(ctx context.Context, alert *entity.Alert) error
 		return fmt.Errorf("marshaling annotations: %w", err)
 	}
 
+	externalReferencesJSON, err := marshalJSON(alert.ExternalReferences)
+	if err != nil {
+		return fmt.Errorf("marshaling external_references: %w", err)
+	}
+
 	// Update with optimistic locking (increment version)
 	query := `
 		UPDATE alerts SET
@@ -348,8 +289,7 @@ func (r *AlertRepository) Update(ctx context.Context, alert *entity.Alert) error
 			state = ?,
 			labels = ?,
 			annotations = ?,
-			slack_message_id = ?,
-			pagerduty_incident_id = ?,
+			external_references = ?,
 			fired_at = ?,
 			acked_at = ?,
 			acked_by = ?,
@@ -370,8 +310,7 @@ func (r *AlertRepository) Update(ctx context.Context, alert *entity.Alert) error
 		string(alert.State),
 		labelsJSON,
 		annotationsJSON,
-		nullString(alert.SlackMessageID),
-		nullString(alert.PagerDutyIncidentID),
+		externalReferencesJSON,
 		timeToTimestamp(alert.FiredAt),
 		nullTime(alert.AckedAt),
 		nullString(alert.AckedBy),
@@ -417,7 +356,7 @@ func (r *AlertRepository) FindActive(ctx context.Context) ([]*entity.Alert, erro
 		SELECT
 			id, fingerprint, name, instance, target, summary, description,
 			severity, state, labels, annotations,
-			slack_message_id, pagerduty_incident_id,
+			external_references,
 			fired_at, acked_at, acked_by, resolved_at,
 			version, created_at, updated_at
 		FROM alerts
@@ -440,7 +379,7 @@ func (r *AlertRepository) FindFiring(ctx context.Context) ([]*entity.Alert, erro
 		SELECT
 			id, fingerprint, name, instance, target, summary, description,
 			severity, state, labels, annotations,
-			slack_message_id, pagerduty_incident_id,
+			external_references,
 			fired_at, acked_at, acked_by, resolved_at,
 			version, created_at, updated_at
 		FROM alerts
@@ -485,8 +424,8 @@ func (r *AlertRepository) scanAlerts(rows *sql.Rows) ([]*entity.Alert, error) {
 
 	for rows.Next() {
 		var alert entity.Alert
-		var labelsJSON, annotationsJSON string
-		var slackMessageID, pagerDutyIncidentID, ackedBy sql.NullString
+		var labelsJSON, annotationsJSON, externalReferencesJSON string
+		var ackedBy sql.NullString
 		var ackedAt, resolvedAt sql.NullTime
 		var version int
 
@@ -502,8 +441,7 @@ func (r *AlertRepository) scanAlerts(rows *sql.Rows) ([]*entity.Alert, error) {
 			&alert.State,
 			&labelsJSON,
 			&annotationsJSON,
-			&slackMessageID,
-			&pagerDutyIncidentID,
+			&externalReferencesJSON,
 			&alert.FiredAt,
 			&ackedAt,
 			&ackedBy,
@@ -524,10 +462,11 @@ func (r *AlertRepository) scanAlerts(rows *sql.Rows) ([]*entity.Alert, error) {
 		if err := unmarshalJSON(annotationsJSON, &alert.Annotations); err != nil {
 			return nil, fmt.Errorf("unmarshaling annotations: %w", err)
 		}
+		if err := unmarshalJSON(externalReferencesJSON, &alert.ExternalReferences); err != nil {
+			return nil, fmt.Errorf("unmarshaling external_references: %w", err)
+		}
 
 		// Set nullable fields
-		alert.SlackMessageID = stringValue(slackMessageID)
-		alert.PagerDutyIncidentID = stringValue(pagerDutyIncidentID)
 		alert.AckedBy = stringValue(ackedBy)
 		alert.AckedAt = timePtr(ackedAt)
 		alert.ResolvedAt = timePtr(resolvedAt)

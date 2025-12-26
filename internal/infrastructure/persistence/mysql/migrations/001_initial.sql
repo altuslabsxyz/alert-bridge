@@ -47,10 +47,7 @@ CREATE TABLE IF NOT EXISTS alerts (
     -- Structured Data (MySQL JSON type for efficient querying)
     labels JSON NOT NULL,
     annotations JSON NOT NULL,
-
-    -- External References
-    slack_message_id VARCHAR(255) DEFAULT NULL,
-    pagerduty_incident_id VARCHAR(255) DEFAULT NULL,
+    external_references JSON NOT NULL,
 
     -- Timestamps
     fired_at TIMESTAMP NOT NULL,
@@ -67,8 +64,6 @@ CREATE TABLE IF NOT EXISTS alerts (
 
     -- Indexes for query patterns from repository interface
     INDEX idx_alerts_fingerprint (fingerprint),
-    INDEX idx_alerts_slack_message_id (slack_message_id),
-    INDEX idx_alerts_pagerduty_incident_id (pagerduty_incident_id),
     INDEX idx_alerts_state (state),
     INDEX idx_alerts_created_at (created_at),
     INDEX idx_alerts_updated_at (updated_at)
@@ -186,8 +181,8 @@ ON DUPLICATE KEY UPDATE applied_at = CURRENT_TIMESTAMP;
 -- 6. JSON FIELDS:
 --    Use JSON_EXTRACT, JSON_CONTAINS for querying:
 --    WHERE JSON_CONTAINS(labels, '"production"', '$.environment')
+--    WHERE JSON_EXTRACT(external_references, '$.slack') = 'message_id'
 --
 -- 7. INDEXES:
 --    All indexes are non-unique (except PKs)
 --    Composite index on (start_at, end_at) for time-range queries
---    Individual indexes for nullable foreign keys (slack_message_id, etc.)

@@ -36,10 +36,7 @@ CREATE TABLE IF NOT EXISTS alerts (
     -- Structured Data (JSON)
     labels TEXT NOT NULL DEFAULT '{}',
     annotations TEXT NOT NULL DEFAULT '{}',
-
-    -- External References
-    slack_message_id TEXT DEFAULT NULL,
-    pagerduty_incident_id TEXT DEFAULT NULL,
+    external_references TEXT NOT NULL DEFAULT '{}',
 
     -- Timestamps (RFC3339 format)
     fired_at TEXT NOT NULL,
@@ -53,14 +50,6 @@ CREATE TABLE IF NOT EXISTS alerts (
 -- Indexes for alerts
 CREATE INDEX IF NOT EXISTS idx_alerts_fingerprint
     ON alerts(fingerprint);
-
-CREATE INDEX IF NOT EXISTS idx_alerts_slack_message_id
-    ON alerts(slack_message_id)
-    WHERE slack_message_id IS NOT NULL;
-
-CREATE INDEX IF NOT EXISTS idx_alerts_pagerduty_incident_id
-    ON alerts(pagerduty_incident_id)
-    WHERE pagerduty_incident_id IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_alerts_state
     ON alerts(state);

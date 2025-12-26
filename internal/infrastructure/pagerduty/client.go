@@ -122,7 +122,7 @@ func (c *Client) Acknowledge(ctx context.Context, alert *entity.Alert, ackEvent 
 		return fmt.Errorf("pagerduty routing key not configured")
 	}
 
-	dedupKey := alert.PagerDutyIncidentID
+	dedupKey := alert.GetExternalReference("pagerduty")
 	if dedupKey == "" {
 		dedupKey = c.buildDedupKey(alert)
 	}
@@ -147,7 +147,7 @@ func (c *Client) Resolve(ctx context.Context, alert *entity.Alert) error {
 		return fmt.Errorf("pagerduty routing key not configured")
 	}
 
-	dedupKey := alert.PagerDutyIncidentID
+	dedupKey := alert.GetExternalReference("pagerduty")
 	if dedupKey == "" {
 		dedupKey = c.buildDedupKey(alert)
 	}

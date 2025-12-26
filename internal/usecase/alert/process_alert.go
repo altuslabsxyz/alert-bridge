@@ -214,12 +214,7 @@ func (uc *ProcessAlertUseCase) updateNotifications(ctx context.Context, alert *e
 
 // storeMessageID stores the message ID for a notifier.
 func (uc *ProcessAlertUseCase) storeMessageID(ctx context.Context, alert *entity.Alert, notifierName, messageID string) {
-	switch notifierName {
-	case "slack":
-		alert.SetSlackMessageID(messageID)
-	case "pagerduty":
-		alert.SetPagerDutyIncidentID(messageID)
-	}
+	alert.SetExternalReference(notifierName, messageID)
 
 	// Update the alert with the new message ID
 	if err := uc.alertRepo.Update(ctx, alert); err != nil {
@@ -233,12 +228,5 @@ func (uc *ProcessAlertUseCase) storeMessageID(ctx context.Context, alert *entity
 
 // getMessageID retrieves the message ID for a notifier.
 func (uc *ProcessAlertUseCase) getMessageID(alert *entity.Alert, notifierName string) string {
-	switch notifierName {
-	case "slack":
-		return alert.SlackMessageID
-	case "pagerduty":
-		return alert.PagerDutyIncidentID
-	default:
-		return ""
-	}
+	return alert.GetExternalReference(notifierName)
 }

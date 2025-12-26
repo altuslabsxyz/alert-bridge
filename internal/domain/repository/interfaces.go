@@ -21,13 +21,10 @@ type AlertRepository interface {
 	// Returns empty slice if none found.
 	FindByFingerprint(ctx context.Context, fingerprint string) ([]*entity.Alert, error)
 
-	// FindBySlackMessageID finds an alert by its Slack message reference.
+	// FindByExternalReference finds an alert by its external system reference.
+	// System examples: "slack", "pagerduty", etc.
 	// Returns nil, nil if not found.
-	FindBySlackMessageID(ctx context.Context, messageID string) (*entity.Alert, error)
-
-	// FindByPagerDutyIncidentID finds an alert by its PagerDuty incident reference.
-	// Returns nil, nil if not found.
-	FindByPagerDutyIncidentID(ctx context.Context, incidentID string) (*entity.Alert, error)
+	FindByExternalReference(ctx context.Context, system, referenceID string) (*entity.Alert, error)
 
 	// Update modifies an existing alert.
 	// Returns ErrAlertNotFound if the alert doesn't exist.

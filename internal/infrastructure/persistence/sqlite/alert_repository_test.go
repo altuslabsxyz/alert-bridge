@@ -121,13 +121,13 @@ func TestAlertRepository_FindBySlackMessageID(t *testing.T) {
 
 	ctx := context.Background()
 	alert := entity.NewAlert("fp1", "TestAlert", "instance1", "target1", "Summary", entity.SeverityWarning)
-	alert.SetSlackMessageID("C123:1234567890.123456")
+	alert.SetExternalReference("slack", "C123:1234567890.123456")
 
 	if err := repo.Save(ctx, alert); err != nil {
 		t.Fatalf("failed to save alert: %v", err)
 	}
 
-	found, err := repo.FindBySlackMessageID(ctx, "C123:1234567890.123456")
+	found, err := repo.FindByExternalReference(ctx, "slack", "C123:1234567890.123456")
 	if err != nil {
 		t.Fatalf("failed to find by slack message ID: %v", err)
 	}
@@ -145,13 +145,13 @@ func TestAlertRepository_FindByPagerDutyIncidentID(t *testing.T) {
 
 	ctx := context.Background()
 	alert := entity.NewAlert("fp1", "TestAlert", "instance1", "target1", "Summary", entity.SeverityWarning)
-	alert.SetPagerDutyIncidentID("PD123456")
+	alert.SetExternalReference("pagerduty", "PD123456")
 
 	if err := repo.Save(ctx, alert); err != nil {
 		t.Fatalf("failed to save alert: %v", err)
 	}
 
-	found, err := repo.FindByPagerDutyIncidentID(ctx, "PD123456")
+	found, err := repo.FindByExternalReference(ctx, "pagerduty", "PD123456")
 	if err != nil {
 		t.Fatalf("failed to find by PagerDuty incident ID: %v", err)
 	}

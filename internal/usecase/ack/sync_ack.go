@@ -202,14 +202,7 @@ func (uc *SyncAckUseCase) syncToExternalSystems(
 
 // shouldSync determines if we should sync to a specific system.
 func (uc *SyncAckUseCase) shouldSync(alert *entity.Alert, syncerName string) bool {
-	switch syncerName {
-	case "slack":
-		return alert.SlackMessageID != ""
-	case "pagerduty":
-		return alert.PagerDutyIncidentID != ""
-	default:
-		return true
-	}
+	return alert.HasExternalReference(syncerName)
 }
 
 // AddSyncer adds a syncer to the use case.

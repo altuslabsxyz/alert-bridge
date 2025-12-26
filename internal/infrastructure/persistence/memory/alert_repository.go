@@ -10,20 +10,18 @@ import (
 // AlertRepository provides an in-memory implementation of repository.AlertRepository.
 // Thread-safe for concurrent access.
 type AlertRepository struct {
-	mu                    sync.RWMutex
-	alerts                map[string]*entity.Alert // id -> alert
-	byFingerprint         map[string][]string      // fingerprint -> alert IDs
-	bySlackMessageID      map[string]string        // slack message ID -> alert ID
-	byPagerDutyIncidentID map[string]string        // pagerduty incident ID -> alert ID
+	mu            sync.RWMutex
+	alerts        map[string]*entity.Alert          // id -> alert
+	byFingerprint map[string][]string               // fingerprint -> alert IDs
+	byExternalRef map[string]map[string]string      // system -> (referenceID -> alert ID)
 }
 
 // NewAlertRepository creates a new in-memory alert repository.
 func NewAlertRepository() *AlertRepository {
 	return &AlertRepository{
-		alerts:                make(map[string]*entity.Alert),
-		byFingerprint:         make(map[string][]string),
-		bySlackMessageID:      make(map[string]string),
-		byPagerDutyIncidentID: make(map[string]string),
+		alerts:        make(map[string]*entity.Alert),
+		byFingerprint: make(map[string][]string),
+		byExternalRef: make(map[string]map[string]string),
 	}
 }
 
@@ -43,14 +41,14 @@ func (r *AlertRepository) Save(ctx context.Context, alert *entity.Alert) error {
 	// Index by fingerprint
 	r.byFingerprint[alert.Fingerprint] = append(r.byFingerprint[alert.Fingerprint], alert.ID)
 
-	// Index by Slack message ID if set
-	if alert.SlackMessageID != "" {
-		r.bySlackMessageID[alert.SlackMessageID] = alert.ID
-	}
-
-	// Index by PagerDuty incident ID if set
-	if alert.PagerDutyIncidentID != "" {
-		r.byPagerDutyIncidentID[alert.PagerDutyIncidentID] = alert.ID
+	// Index by external references
+	for system, refID := range alert.ExternalReferences {
+		if refID != "" {
+			if r.byExternalRef[system] == nil {
+				r.byExternalRef[system] = make(map[string]string)
+			}
+			r.byExternalRef[system][refID] = alert.ID
+		}
 	}
 
 	return nil
@@ -87,31 +85,17 @@ func (r *AlertRepository) FindByFingerprint(ctx context.Context, fingerprint str
 	return alerts, nil
 }
 
-// FindBySlackMessageID finds an alert by its Slack message reference.
-func (r *AlertRepository) FindBySlackMessageID(ctx context.Context, messageID string) (*entity.Alert, error) {
+// FindByExternalReference finds an alert by its external system reference.
+func (r *AlertRepository) FindByExternalReference(ctx context.Context, system, referenceID string) (*entity.Alert, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	id, ok := r.bySlackMessageID[messageID]
+	systemMap, ok := r.byExternalRef[system]
 	if !ok {
 		return nil, nil
 	}
 
-	alert, ok := r.alerts[id]
-	if !ok {
-		return nil, nil
-	}
-
-	alertCopy := *alert
-	return &alertCopy, nil
-}
-
-// FindByPagerDutyIncidentID finds an alert by its PagerDuty incident reference.
-func (r *AlertRepository) FindByPagerDutyIncidentID(ctx context.Context, incidentID string) (*entity.Alert, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	id, ok := r.byPagerDutyIncidentID[incidentID]
+	id, ok := systemMap[referenceID]
 	if !ok {
 		return nil, nil
 	}
@@ -135,22 +119,25 @@ func (r *AlertRepository) Update(ctx context.Context, alert *entity.Alert) error
 		return entity.ErrAlertNotFound
 	}
 
-	// Update secondary indexes if changed
-	if existing.SlackMessageID != alert.SlackMessageID {
-		if existing.SlackMessageID != "" {
-			delete(r.bySlackMessageID, existing.SlackMessageID)
-		}
-		if alert.SlackMessageID != "" {
-			r.bySlackMessageID[alert.SlackMessageID] = alert.ID
+	// Update external reference indexes if changed
+	// Remove old references
+	for system, oldRefID := range existing.ExternalReferences {
+		newRefID := alert.GetExternalReference(system)
+		if oldRefID != newRefID && oldRefID != "" {
+			if r.byExternalRef[system] != nil {
+				delete(r.byExternalRef[system], oldRefID)
+			}
 		}
 	}
 
-	if existing.PagerDutyIncidentID != alert.PagerDutyIncidentID {
-		if existing.PagerDutyIncidentID != "" {
-			delete(r.byPagerDutyIncidentID, existing.PagerDutyIncidentID)
-		}
-		if alert.PagerDutyIncidentID != "" {
-			r.byPagerDutyIncidentID[alert.PagerDutyIncidentID] = alert.ID
+	// Add new references
+	for system, newRefID := range alert.ExternalReferences {
+		oldRefID := existing.GetExternalReference(system)
+		if newRefID != oldRefID && newRefID != "" {
+			if r.byExternalRef[system] == nil {
+				r.byExternalRef[system] = make(map[string]string)
+			}
+			r.byExternalRef[system][newRefID] = alert.ID
 		}
 	}
 
@@ -201,12 +188,11 @@ func (r *AlertRepository) Delete(ctx context.Context, id string) error {
 		return entity.ErrAlertNotFound
 	}
 
-	// Remove from secondary indexes
-	if alert.SlackMessageID != "" {
-		delete(r.bySlackMessageID, alert.SlackMessageID)
-	}
-	if alert.PagerDutyIncidentID != "" {
-		delete(r.byPagerDutyIncidentID, alert.PagerDutyIncidentID)
+	// Remove from external reference indexes
+	for system, refID := range alert.ExternalReferences {
+		if refID != "" && r.byExternalRef[system] != nil {
+			delete(r.byExternalRef[system], refID)
+		}
 	}
 
 	// Remove from fingerprint index

@@ -185,16 +185,16 @@ func TestAlertRepository_FindBySlackMessageID(t *testing.T) {
 	ctx := context.Background()
 
 	alert := createTestAlert()
-	alert.SetSlackMessageID("C123456:1234567890.123456")
+	alert.SetExternalReference("slack", "C123456:1234567890.123456")
 	err := repo.Save(ctx, alert)
 	require.NoError(t, err)
 
 	// Find by Slack message ID
-	found, err := repo.FindBySlackMessageID(ctx, "C123456:1234567890.123456")
+	found, err := repo.FindByExternalReference(ctx, "slack", "C123456:1234567890.123456")
 	require.NoError(t, err)
 	require.NotNil(t, found)
 	assert.Equal(t, alert.ID, found.ID)
-	assert.Equal(t, "C123456:1234567890.123456", found.SlackMessageID)
+	assert.Equal(t, "C123456:1234567890.123456", found.GetExternalReference("slack"))
 }
 
 func TestAlertRepository_FindBySlackMessageID_NotFound(t *testing.T) {
@@ -204,7 +204,7 @@ func TestAlertRepository_FindBySlackMessageID_NotFound(t *testing.T) {
 	repo := NewAlertRepository(db)
 	ctx := context.Background()
 
-	found, err := repo.FindBySlackMessageID(ctx, "non-existent")
+	found, err := repo.FindByExternalReference(ctx, "slack", "non-existent")
 	require.NoError(t, err)
 	assert.Nil(t, found)
 }
@@ -217,16 +217,16 @@ func TestAlertRepository_FindByPagerDutyIncidentID(t *testing.T) {
 	ctx := context.Background()
 
 	alert := createTestAlert()
-	alert.SetPagerDutyIncidentID("PD-12345")
+	alert.SetExternalReference("pagerduty", "PD-12345")
 	err := repo.Save(ctx, alert)
 	require.NoError(t, err)
 
 	// Find by PagerDuty incident ID
-	found, err := repo.FindByPagerDutyIncidentID(ctx, "PD-12345")
+	found, err := repo.FindByExternalReference(ctx, "pagerduty", "PD-12345")
 	require.NoError(t, err)
 	require.NotNil(t, found)
 	assert.Equal(t, alert.ID, found.ID)
-	assert.Equal(t, "PD-12345", found.PagerDutyIncidentID)
+	assert.Equal(t, "PD-12345", found.GetExternalReference("pagerduty"))
 }
 
 func TestAlertRepository_Update(t *testing.T) {
@@ -451,8 +451,8 @@ func TestAlertRepository_NullableFields(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, found)
 
-	assert.Empty(t, found.SlackMessageID)
-	assert.Empty(t, found.PagerDutyIncidentID)
+	assert.Empty(t, found.GetExternalReference("slack"))
+	assert.Empty(t, found.GetExternalReference("pagerduty"))
 	assert.Empty(t, found.AckedBy)
 	assert.Nil(t, found.AckedAt)
 	assert.Nil(t, found.ResolvedAt)
@@ -460,8 +460,8 @@ func TestAlertRepository_NullableFields(t *testing.T) {
 	// Update with nullable fields
 	now := time.Now().UTC()
 	_ = found.Acknowledge("user@example.com", now)
-	found.SetSlackMessageID("C123:456")
-	found.SetPagerDutyIncidentID("PD-789")
+	found.SetExternalReference("slack", "C123:456")
+	found.SetExternalReference("pagerduty", "PD-789")
 
 	err = repo.Update(ctx, found)
 	require.NoError(t, err)
@@ -471,8 +471,8 @@ func TestAlertRepository_NullableFields(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, updated)
 
-	assert.Equal(t, "C123:456", updated.SlackMessageID)
-	assert.Equal(t, "PD-789", updated.PagerDutyIncidentID)
+	assert.Equal(t, "C123:456", updated.GetExternalReference("slack"))
+	assert.Equal(t, "PD-789", updated.GetExternalReference("pagerduty"))
 	assert.Equal(t, "user@example.com", updated.AckedBy)
 	assert.NotNil(t, updated.AckedAt)
 }

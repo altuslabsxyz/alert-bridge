@@ -60,11 +60,9 @@ type Alert struct {
 	// Annotations provide additional contextual information.
 	Annotations map[string]string
 
-	// SlackMessageID stores the Slack message reference (channel:timestamp).
-	SlackMessageID string
-
-	// PagerDutyIncidentID stores the PagerDuty incident reference.
-	PagerDutyIncidentID string
+	// ExternalReferences stores integration-specific message/incident IDs.
+	// Keys: "slack", "pagerduty", "discord", etc.
+	ExternalReferences map[string]string
 
 	// FiredAt is when the alert first fired.
 	FiredAt time.Time
@@ -89,19 +87,20 @@ type Alert struct {
 func NewAlert(fingerprint, name, instance, target, summary string, severity AlertSeverity) *Alert {
 	now := time.Now().UTC()
 	return &Alert{
-		ID:          uuid.New().String(),
-		Fingerprint: fingerprint,
-		Name:        name,
-		Instance:    instance,
-		Target:      target,
-		Summary:     summary,
-		Severity:    severity,
-		State:       StateActive,
-		Labels:      make(map[string]string),
-		Annotations: make(map[string]string),
-		FiredAt:     now,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:                 uuid.New().String(),
+		Fingerprint:        fingerprint,
+		Name:               name,
+		Instance:           instance,
+		Target:             target,
+		Summary:            summary,
+		Severity:           severity,
+		State:              StateActive,
+		Labels:             make(map[string]string),
+		Annotations:        make(map[string]string),
+		ExternalReferences: make(map[string]string),
+		FiredAt:            now,
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	}
 }
 
@@ -150,18 +149,6 @@ func (a *Alert) IsResolved() bool {
 	return a.State == StateResolved
 }
 
-// SetSlackMessageID sets the Slack message reference.
-func (a *Alert) SetSlackMessageID(messageID string) {
-	a.SlackMessageID = messageID
-	a.UpdatedAt = time.Now().UTC()
-}
-
-// SetPagerDutyIncidentID sets the PagerDuty incident reference.
-func (a *Alert) SetPagerDutyIncidentID(incidentID string) {
-	a.PagerDutyIncidentID = incidentID
-	a.UpdatedAt = time.Now().UTC()
-}
-
 // AddLabel adds a label to the alert.
 func (a *Alert) AddLabel(key, value string) {
 	if a.Labels == nil {
@@ -176,6 +163,28 @@ func (a *Alert) AddAnnotation(key, value string) {
 		a.Annotations = make(map[string]string)
 	}
 	a.Annotations[key] = value
+}
+
+// SetExternalReference sets an external system reference ID.
+func (a *Alert) SetExternalReference(system, referenceID string) {
+	if a.ExternalReferences == nil {
+		a.ExternalReferences = make(map[string]string)
+	}
+	a.ExternalReferences[system] = referenceID
+	a.UpdatedAt = time.Now().UTC()
+}
+
+// GetExternalReference returns the external reference ID for a system.
+func (a *Alert) GetExternalReference(system string) string {
+	if a.ExternalReferences == nil {
+		return ""
+	}
+	return a.ExternalReferences[system]
+}
+
+// HasExternalReference checks if an external reference exists for a system.
+func (a *Alert) HasExternalReference(system string) bool {
+	return a.GetExternalReference(system) != ""
 }
 
 // GetLabel returns the value of a label, or empty string if not found.

@@ -121,17 +121,18 @@ func (uc *HandleWebhookUseCase) handleAcknowledged(
 	}
 
 	// Update Slack message if we have a message ID
-	if alertEntity.SlackMessageID != "" && uc.slackUpdater != nil {
-		if err := uc.slackUpdater.UpdateMessage(ctx, alertEntity.SlackMessageID, ackOutput.Alert); err != nil {
+	slackMessageID := alertEntity.GetExternalReference("slack")
+	if slackMessageID != "" && uc.slackUpdater != nil {
+		if err := uc.slackUpdater.UpdateMessage(ctx, slackMessageID, ackOutput.Alert); err != nil {
 			uc.logger.Error("failed to update Slack message",
 				"alertID", alertEntity.ID,
-				"slackMessageID", alertEntity.SlackMessageID,
+				"slackMessageID", slackMessageID,
 				"error", err,
 			)
 		} else {
 			uc.logger.Info("updated Slack message for PagerDuty ack",
 				"alertID", alertEntity.ID,
-				"slackMessageID", alertEntity.SlackMessageID,
+				"slackMessageID", slackMessageID,
 			)
 		}
 	}
@@ -162,17 +163,18 @@ func (uc *HandleWebhookUseCase) handleResolved(
 	}
 
 	// Update Slack message if we have a message ID
-	if alertEntity.SlackMessageID != "" && uc.slackUpdater != nil {
-		if err := uc.slackUpdater.UpdateMessage(ctx, alertEntity.SlackMessageID, alertEntity); err != nil {
+	slackMessageID := alertEntity.GetExternalReference("slack")
+	if slackMessageID != "" && uc.slackUpdater != nil {
+		if err := uc.slackUpdater.UpdateMessage(ctx, slackMessageID, alertEntity); err != nil {
 			uc.logger.Error("failed to update Slack message for resolution",
 				"alertID", alertEntity.ID,
-				"slackMessageID", alertEntity.SlackMessageID,
+				"slackMessageID", slackMessageID,
 				"error", err,
 			)
 		} else {
 			uc.logger.Info("updated Slack message for PagerDuty resolution",
 				"alertID", alertEntity.ID,
-				"slackMessageID", alertEntity.SlackMessageID,
+				"slackMessageID", slackMessageID,
 			)
 		}
 	}
@@ -185,13 +187,15 @@ func (uc *HandleWebhookUseCase) handleResolved(
 // findAlertByIncidentKey finds an alert by PagerDuty incident key.
 // The incident key typically maps to our fingerprint.
 func (uc *HandleWebhookUseCase) findAlertByIncidentKey(ctx context.Context, incidentKey, incidentID string) (*entity.Alert, error) {
-	// First, try to find by PagerDuty incident ID
-	alertEntity, err := uc.alertRepo.FindByPagerDutyIncidentID(ctx, incidentID)
-	if err != nil {
-		return nil, err
-	}
-	if alertEntity != nil {
-		return alertEntity, nil
+	// First, try to find by PagerDuty incident ID using the new interface
+	if incidentID != "" {
+		alertEntity, err := uc.alertRepo.FindByExternalReference(ctx, "pagerduty", incidentID)
+		if err != nil {
+			return nil, err
+		}
+		if alertEntity != nil {
+			return alertEntity, nil
+		}
 	}
 
 	// Try to find by fingerprint (incident key)
