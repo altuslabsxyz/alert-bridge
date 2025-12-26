@@ -12,13 +12,13 @@ Comprehensive end-to-end testing framework for the alert-bridge system using iso
 ```
 
 This single command will:
-1. ✅ Validate prerequisites (Docker, Git, Go, ports)
-2. ✅ Create isolated git worktree
-3. ✅ Build and start all services (Prometheus, Alertmanager, Alert-Bridge, mocks)
-4. ✅ Wait for services to become healthy
-5. ✅ Execute all E2E tests
-6. ✅ Collect diagnostics on failure
-7. ✅ Clean up all resources automatically
+1. Validate prerequisites (Docker, Git, Go, ports)
+2. Create isolated git worktree
+3. Build and start all services (Prometheus, Alertmanager, Alert-Bridge, mocks)
+4. Wait for services to become healthy
+5. Execute all E2E tests
+6. Collect diagnostics on failure
+7. Clean up all resources automatically
 
 ### Run Individual Scenario
 
@@ -184,7 +184,7 @@ func TestMyScenario(t *testing.T) {
     msg := helpers.AssertSlackMessageReceived(t, alert.Fingerprint)
     helpers.AssertSlackMessageContains(t, msg, "HighCPU")
 
-    t.Log("✓ Test passed")
+    t.Log("Test passed")
 }
 ```
 
@@ -445,13 +445,13 @@ Expected performance on typical development machine (MacBook Pro M1, 16GB RAM):
 
 The E2E test suite validates:
 
-✅ Alert creation and delivery to Slack
-✅ Alert creation and delivery to PagerDuty
-✅ Alert deduplication logic
-✅ Alert resolution notifications
-✅ Multiple alerts grouping
-✅ Different severity levels handling
-✅ Service health and availability
+- Alert creation and delivery to Slack
+- Alert creation and delivery to PagerDuty
+- Alert deduplication logic
+- Alert resolution notifications
+- Multiple alerts grouping
+- Different severity levels handling
+- Service health and availability
 
 ## Contributing
 

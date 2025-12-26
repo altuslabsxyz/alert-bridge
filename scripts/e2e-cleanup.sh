@@ -39,15 +39,15 @@ log_info() {
 }
 
 log_success() {
-    echo -e "${GREEN}[CLEANUP]${NC} ✓ $*"
+    echo -e "${GREEN}[CLEANUP]${NC} $*"
 }
 
 log_warning() {
-    echo -e "${YELLOW}[CLEANUP]${NC} ⚠ $*"
+    echo -e "${YELLOW}[CLEANUP]${NC} $*"
 }
 
 log_error() {
-    echo -e "${RED}[CLEANUP]${NC} ✗ $*" >&2
+    echo -e "${RED}[CLEANUP]${NC} $*" >&2
 }
 
 #=============================================================================
@@ -202,13 +202,13 @@ show_summary() {
 
     echo "Status:"
     if [[ ${remaining_containers} -eq 0 ]]; then
-        log_success "E2E containers: All cleaned ✓"
+        log_success "E2E containers: All cleaned"
     else
         log_warning "E2E containers: ${remaining_containers} remaining"
     fi
 
     if [[ ${remaining_worktrees} -eq 0 ]]; then
-        log_success "E2E worktrees: All cleaned ✓"
+        log_success "E2E worktrees: All cleaned"
     else
         log_warning "E2E worktrees: ${remaining_worktrees} remaining"
     fi
@@ -216,7 +216,7 @@ show_summary() {
     echo ""
 
     if [[ ${remaining_containers} -eq 0 && ${remaining_worktrees} -eq 0 ]]; then
-        log_success "✓ All E2E resources cleaned up successfully"
+        log_success "All E2E resources cleaned up successfully"
     else
         log_warning "Some resources remain. You may need to clean them manually:"
         if [[ ${remaining_containers} -gt 0 ]]; then

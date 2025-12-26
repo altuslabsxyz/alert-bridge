@@ -54,15 +54,15 @@ log_info() {
 }
 
 log_success() {
-    echo -e "${GREEN}[E2E]${NC} ✓ $*"
+    echo -e "${GREEN}[E2E]${NC} $*"
 }
 
 log_warning() {
-    echo -e "${YELLOW}[E2E]${NC} ⚠ $*"
+    echo -e "${YELLOW}[E2E]${NC} $*"
 }
 
 log_error() {
-    echo -e "${RED}[E2E]${NC} ✗ $*" >&2
+    echo -e "${RED}[E2E]${NC} $*" >&2
 }
 
 log_verbose() {
@@ -462,11 +462,11 @@ main() {
     # Run tests (allow failure to trigger diagnostics)
     if run_tests; then
         echo ""
-        log_success "✓ E2E test suite completed successfully!"
+        log_success "E2E test suite completed successfully!"
         TEST_FAILED=0
     else
         echo ""
-        log_error "✗ E2E test suite failed"
+        log_error "E2E test suite failed"
         TEST_FAILED=1
     fi
 }

@@ -47,11 +47,11 @@ log_info() {
 }
 
 log_success() {
-    echo -e "${GREEN}[E2E-SCENARIO]${NC} ✓ $*"
+    echo -e "${GREEN}[E2E-SCENARIO]${NC} $*"
 }
 
 log_error() {
-    echo -e "${RED}[E2E-SCENARIO]${NC} ✗ $*" >&2
+    echo -e "${RED}[E2E-SCENARIO]${NC} $*" >&2
 }
 
 #=============================================================================

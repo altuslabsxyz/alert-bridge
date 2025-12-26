@@ -15,7 +15,7 @@ if ! curl -s http://localhost:8080/health > /dev/null 2>&1; then
     exit 1
 fi
 
-echo "✓ alert-bridge is running"
+echo "alert-bridge is running"
 echo ""
 
 # Test 1: Reload current configuration
@@ -24,9 +24,9 @@ response=$(curl -s -X POST http://localhost:8080/-/reload)
 echo "Response: $response"
 
 if echo "$response" | grep -q "successfully"; then
-    echo "✓ Reload successful"
+    echo "Reload successful"
 else
-    echo "✗ Reload failed"
+    echo "Reload failed"
     exit 1
 fi
 echo ""
@@ -36,9 +36,9 @@ echo "Test 2: Test GET request (should fail with 405)"
 status_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/-/reload)
 
 if [ "$status_code" == "405" ]; then
-    echo "✓ GET request correctly rejected with 405"
+    echo "GET request correctly rejected with 405"
 else
-    echo "✗ Expected 405, got $status_code"
+    echo "Expected 405, got $status_code"
     exit 1
 fi
 echo ""

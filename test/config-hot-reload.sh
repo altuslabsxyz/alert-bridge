@@ -11,13 +11,13 @@ echo ""
 # Test 1: Build the application
 echo "Test 1: Building alert-bridge..."
 go build -o alert-bridge ./cmd/alert-bridge
-echo "✓ Build successful"
+echo "Build successful"
 echo ""
 
 # Test 2: Run integration tests
 echo "Test 2: Running integration tests..."
 go test -v ./internal/infrastructure/config/ | grep -E "PASS|FAIL"
-echo "✓ Integration tests passed"
+echo "Integration tests passed"
 echo ""
 
 # Test 3: Verify all required files exist
@@ -31,9 +31,9 @@ required_files=(
 
 for file in "${required_files[@]}"; do
     if [ -f "$file" ]; then
-        echo "✓ $file exists"
+        echo "$file exists"
     else
-        echo "✗ $file missing"
+        echo "$file missing"
         exit 1
     fi
 done
@@ -42,9 +42,9 @@ echo ""
 # Test 4: Verify Viper dependency
 echo "Test 4: Checking Viper dependency..."
 if grep -q "github.com/spf13/viper" go.mod; then
-    echo "✓ Viper dependency added"
+    echo "Viper dependency added"
 else
-    echo "✗ Viper dependency missing"
+    echo "Viper dependency missing"
     exit 1
 fi
 echo ""
@@ -52,16 +52,16 @@ echo ""
 # Test 5: Verify ConfigManager integration in main.go
 echo "Test 5: Checking ConfigManager integration..."
 if grep -q "ConfigManager" cmd/alert-bridge/main.go; then
-    echo "✓ ConfigManager integrated in main.go"
+    echo "ConfigManager integrated in main.go"
 else
-    echo "✗ ConfigManager not found in main.go"
+    echo "ConfigManager not found in main.go"
     exit 1
 fi
 
 if grep -q "watcher.Start()" cmd/alert-bridge/main.go; then
-    echo "✓ Config watcher started in main.go"
+    echo "Config watcher started in main.go"
 else
-    echo "✗ Config watcher not started in main.go"
+    echo "Config watcher not started in main.go"
     exit 1
 fi
 echo ""

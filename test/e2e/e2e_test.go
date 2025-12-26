@@ -41,7 +41,7 @@ func TestE2ESetup(t *testing.T) {
 	// Print service URLs for debugging
 	helpers.PrintServiceURLs(t)
 
-	t.Log("✓ E2E environment is ready")
+	t.Log("E2E environment is ready")
 }
 
 // TestAlertCreationSlack tests alert delivery to Slack
@@ -87,7 +87,7 @@ func TestAlertCreationSlack(t *testing.T) {
 	helpers.AssertSlackMessageContains(t, msg, "server-01")
 
 	helpers.LogTestPhase(t, "test_complete")
-	t.Log("✓ Alert successfully delivered to Slack")
+	t.Log("Alert successfully delivered to Slack")
 }
 
 // TestAlertCreationPagerDuty tests alert delivery to PagerDuty
@@ -120,7 +120,7 @@ func TestAlertCreationPagerDuty(t *testing.T) {
 	helpers.AssertPagerDutyEventSeverity(t, event, "critical")
 
 	helpers.LogTestPhase(t, "test_complete")
-	t.Log("✓ Alert successfully delivered to PagerDuty")
+	t.Log("Alert successfully delivered to PagerDuty")
 }
 
 // TestAlertDeduplication tests that duplicate alerts are not sent multiple times
@@ -150,7 +150,7 @@ func TestAlertDeduplication(t *testing.T) {
 	helpers.AssertSlackMessageCount(t, 1, alert.Fingerprint)
 
 	helpers.LogTestPhase(t, "test_complete")
-	t.Log("✓ Alert deduplication working correctly")
+	t.Log("Alert deduplication working correctly")
 }
 
 // TestAlertResolution tests alert resolution notifications
@@ -187,7 +187,7 @@ func TestAlertResolution(t *testing.T) {
 	helpers.AssertSlackMessageCount(t, 1, alert.Fingerprint) // Same message, updated
 
 	helpers.LogTestPhase(t, "test_complete")
-	t.Log("✓ Alert resolution notifications working correctly")
+	t.Log("Alert resolution notifications working correctly")
 }
 
 // TestMultipleAlertsGrouping tests that multiple alerts are properly grouped
@@ -216,7 +216,7 @@ func TestMultipleAlertsGrouping(t *testing.T) {
 	helpers.AssertSlackMessageReceived(t, alert3.Fingerprint)
 
 	helpers.LogTestPhase(t, "test_complete")
-	t.Log("✓ Multiple alerts handled correctly")
+	t.Log("Multiple alerts handled correctly")
 }
 
 // TestDifferentSeverityLevels tests alerts with different severity levels
@@ -249,5 +249,5 @@ func TestDifferentSeverityLevels(t *testing.T) {
 	helpers.AssertPagerDutyEventSeverity(t, warningEvent, "warning")
 
 	helpers.LogTestPhase(t, "test_complete")
-	t.Log("✓ Different severity levels handled correctly")
+	t.Log("Different severity levels handled correctly")
 }

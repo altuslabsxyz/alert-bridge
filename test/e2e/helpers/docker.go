@@ -26,7 +26,7 @@ func WaitForService(t *testing.T, healthURL string, timeout time.Duration) {
 			resp, err := http.Get(healthURL)
 			if err == nil && resp.StatusCode == http.StatusOK {
 				resp.Body.Close()
-				t.Logf("✓ Service %s is healthy", healthURL)
+				t.Logf("Service %s is healthy", healthURL)
 				return
 			}
 			if resp != nil {
@@ -55,7 +55,7 @@ func WaitForAllServices(t *testing.T) {
 		WaitForService(t, url, timeout)
 	}
 
-	t.Log("✓ All services are healthy")
+	t.Log("All services are healthy")
 }
 
 // ResetMockServices resets the state of all mock services
@@ -76,7 +76,7 @@ func ResetMockServices(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	t.Log("✓ Mock services reset")
+	t.Log("Mock services reset")
 }
 
 // ServiceHealthCheck performs a health check on a service

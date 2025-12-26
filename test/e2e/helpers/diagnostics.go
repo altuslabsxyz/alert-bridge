@@ -42,7 +42,7 @@ func (d *DiagnosticsCollector) CollectAll(t *testing.T) {
 	// Collect test trace (if available)
 	d.CollectTestTrace(t)
 
-	t.Logf("✓ Diagnostics collected")
+	t.Logf("Diagnostics collected")
 }
 
 // CollectServiceLogs collects logs from all Docker services
@@ -78,7 +78,7 @@ func (d *DiagnosticsCollector) CollectServiceLogs(t *testing.T) {
 			continue
 		}
 
-		t.Logf("✓ Collected logs for %s", service)
+		t.Logf("Collected logs for %s", service)
 	}
 }
 
@@ -99,7 +99,7 @@ func (d *DiagnosticsCollector) CollectContainerStates(t *testing.T) {
 		return
 	}
 
-	t.Logf("✓ Collected container states")
+	t.Logf("Collected container states")
 }
 
 // CollectTestTrace collects test execution trace
@@ -124,7 +124,7 @@ func (d *DiagnosticsCollector) CollectTestTrace(t *testing.T) {
 		return
 	}
 
-	t.Logf("✓ Collected test trace")
+	t.Logf("Collected test trace")
 }
 
 // LogTestPhase logs a test phase for trace collection

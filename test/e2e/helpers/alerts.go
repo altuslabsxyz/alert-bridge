@@ -85,7 +85,7 @@ func SendAlertToAlertmanager(t *testing.T, alert Alert) {
 		t.Fatalf("Alertmanager returned status %d: %s", resp.StatusCode, string(body))
 	}
 
-	t.Logf("✓ Alert sent to Alertmanager: %s", alert.Labels["alertname"])
+	t.Logf("Alert sent to Alertmanager: %s", alert.Labels["alertname"])
 }
 
 // SendAlertToAlertBridge sends an alert directly to Alert-Bridge webhook
@@ -142,7 +142,7 @@ func SendAlertToAlertBridge(t *testing.T, alerts []Alert) {
 		t.Fatalf("Alert-Bridge returned status %d: %s", resp.StatusCode, string(body))
 	}
 
-	t.Logf("✓ Alert sent to Alert-Bridge webhook")
+	t.Logf("Alert sent to Alert-Bridge webhook")
 }
 
 // ResolveAlert marks an alert as resolved
@@ -192,7 +192,7 @@ func WaitForAlertDelivery(t *testing.T, fingerprint string, timeout time.Duratio
 			var messages []interface{}
 			json.NewDecoder(resp.Body).Decode(&messages)
 			if len(messages) > 0 {
-				t.Logf("✓ Alert delivered to Slack")
+				t.Logf("Alert delivered to Slack")
 				return
 			}
 		}
@@ -204,7 +204,7 @@ func WaitForAlertDelivery(t *testing.T, fingerprint string, timeout time.Duratio
 			var events []interface{}
 			json.NewDecoder(resp.Body).Decode(&events)
 			if len(events) > 0 {
-				t.Logf("✓ Alert delivered to PagerDuty")
+				t.Logf("Alert delivered to PagerDuty")
 				return
 			}
 		}

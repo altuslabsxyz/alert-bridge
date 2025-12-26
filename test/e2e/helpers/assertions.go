@@ -77,7 +77,7 @@ func AssertSlackMessageCount(t *testing.T, expected int, fingerprint string) {
 		t.Fatalf("Expected %d Slack messages, got %d", expected, len(messages))
 	}
 
-	t.Logf("✓ Slack message count: %d", len(messages))
+	t.Logf("Slack message count: %d", len(messages))
 }
 
 // AssertSlackMessageContains asserts that a Slack message contains expected text
@@ -153,7 +153,7 @@ func AssertPagerDutyEventCount(t *testing.T, expected int, dedupKey string) {
 		t.Fatalf("Expected %d PagerDuty events, got %d", expected, len(events))
 	}
 
-	t.Logf("✓ PagerDuty event count: %d", len(events))
+	t.Logf("PagerDuty event count: %d", len(events))
 }
 
 // AssertPagerDutyEventAction asserts the action of a PagerDuty event
@@ -164,7 +164,7 @@ func AssertPagerDutyEventAction(t *testing.T, event PagerDutyEvent, expectedActi
 		t.Fatalf("Expected PagerDuty event action %s, got %s", expectedAction, event.EventAction)
 	}
 
-	t.Logf("✓ PagerDuty event action: %s", event.EventAction)
+	t.Logf("PagerDuty event action: %s", event.EventAction)
 }
 
 // AssertPagerDutyEventSeverity asserts the severity in the event payload
@@ -184,7 +184,7 @@ func AssertPagerDutyEventSeverity(t *testing.T, event PagerDutyEvent, expectedSe
 		t.Fatalf("Expected PagerDuty event severity %s, got %s", expectedSeverity, severity)
 	}
 
-	t.Logf("✓ PagerDuty event severity: %s", severity)
+	t.Logf("PagerDuty event severity: %s", severity)
 }
 
 // contains checks if a string contains a substring

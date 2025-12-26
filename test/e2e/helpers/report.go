@@ -176,16 +176,16 @@ func (r *TestReporter) PrintSummary() {
 	fmt.Println()
 	fmt.Printf("Total Duration:  %s\n", r.report.Duration)
 	fmt.Printf("Total Tests:     %d\n", r.report.TotalTests)
-	fmt.Printf("Passed:          %d ✓\n", r.report.PassedTests)
-	fmt.Printf("Failed:          %d ✗\n", r.report.FailedTests)
-	fmt.Printf("Skipped:         %d ⊘\n", r.report.SkippedTests)
+	fmt.Printf("Passed:          %d\n", r.report.PassedTests)
+	fmt.Printf("Failed:          %d\n", r.report.FailedTests)
+	fmt.Printf("Skipped:         %d\n", r.report.SkippedTests)
 	fmt.Println()
 
 	if r.report.FailedTests > 0 {
 		fmt.Println("Failed Tests:")
 		for _, result := range r.report.TestResults {
 			if result.Status == "failed" {
-				fmt.Printf("  ✗ %s (%s)\n", result.Name, result.Duration)
+				fmt.Printf("  %s (%s)\n", result.Name, result.Duration)
 				if result.Error != "" {
 					fmt.Printf("    Error: %s\n", result.Error)
 				}
@@ -213,13 +213,13 @@ func (r *TestReporter) PrintDetailedReport() {
 		var statusIcon string
 		switch result.Status {
 		case "passed":
-			statusIcon = "✓"
+			statusIcon = "[PASS]"
 		case "failed":
-			statusIcon = "✗"
+			statusIcon = "[FAIL]"
 		case "skipped":
-			statusIcon = "⊘"
+			statusIcon = "[SKIP]"
 		default:
-			statusIcon = "?"
+			statusIcon = "[UNKN]"
 		}
 
 		fmt.Printf("%s %s (%s)\n", statusIcon, result.Name, result.Duration)
