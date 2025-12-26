@@ -8,6 +8,7 @@ import (
 	"github.com/qj0r9j0vc2/alert-bridge/internal/adapter/dto"
 	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/entity"
 	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/repository"
+	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/observability"
 )
 
 // ProcessAlertUseCase handles incoming alerts from Alertmanager.
@@ -16,6 +17,7 @@ type ProcessAlertUseCase struct {
 	silenceRepo repository.SilenceRepository
 	notifiers   []Notifier
 	logger      Logger
+	metrics     *observability.Metrics
 }
 
 // NewProcessAlertUseCase creates a new ProcessAlertUseCase with dependencies.
@@ -24,17 +26,36 @@ func NewProcessAlertUseCase(
 	silenceRepo repository.SilenceRepository,
 	notifiers []Notifier,
 	logger Logger,
+	metrics *observability.Metrics,
 ) *ProcessAlertUseCase {
 	return &ProcessAlertUseCase{
 		alertRepo:   alertRepo,
 		silenceRepo: silenceRepo,
 		notifiers:   notifiers,
 		logger:      logger,
+		metrics:     metrics,
 	}
 }
 
 // Execute processes an incoming alert.
 func (uc *ProcessAlertUseCase) Execute(ctx context.Context, input dto.ProcessAlertInput) (*dto.ProcessAlertOutput, error) {
+	start := time.Now()
+	success := false
+
+	defer func() {
+		duration := time.Since(start)
+		if uc.metrics != nil {
+			uc.metrics.RecordAlertProcessed(
+				ctx,
+				input.Name,
+				string(input.Severity),
+				input.Status,
+				duration,
+				success,
+			)
+		}
+	}()
+
 	output := &dto.ProcessAlertOutput{}
 
 	// 1. Check if alert exists (by fingerprint)
@@ -54,6 +75,7 @@ func (uc *ProcessAlertUseCase) Execute(ctx context.Context, input dto.ProcessAle
 			uc.logger.Debug("no firing alert found to resolve",
 				"fingerprint", input.Fingerprint,
 			)
+			success = true
 			return output, nil
 		}
 
@@ -69,6 +91,7 @@ func (uc *ProcessAlertUseCase) Execute(ctx context.Context, input dto.ProcessAle
 		// Update notifications to show resolved state
 		uc.updateNotifications(ctx, alert, output)
 
+		success = true
 		return output, nil
 	}
 
@@ -83,6 +106,7 @@ func (uc *ProcessAlertUseCase) Execute(ctx context.Context, input dto.ProcessAle
 		)
 		output.AlertID = alert.ID
 		output.IsNew = false
+		success = true
 		return output, nil
 	}
 
@@ -130,6 +154,7 @@ func (uc *ProcessAlertUseCase) Execute(ctx context.Context, input dto.ProcessAle
 
 		output.AlertID = alert.ID
 		output.IsNew = true
+		success = true
 		return output, nil
 	}
 
@@ -144,6 +169,7 @@ func (uc *ProcessAlertUseCase) Execute(ctx context.Context, input dto.ProcessAle
 	// 7. Send notifications
 	uc.sendNotifications(ctx, alert, output)
 
+	success = true
 	return output, nil
 }
 

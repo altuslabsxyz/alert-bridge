@@ -22,6 +22,7 @@ func (app *Application) initializeUseCases() error {
 			app.silenceRepo,
 			app.clients.Notifiers,
 			logger,
+			app.telemetry.Metrics,
 		),
 		SyncAck: ack.NewSyncAckUseCase(
 			app.alertRepo,
@@ -29,6 +30,7 @@ func (app *Application) initializeUseCases() error {
 			app.txManager,
 			app.clients.Syncers,
 			logger,
+			app.telemetry.Metrics,
 		),
 	}
 

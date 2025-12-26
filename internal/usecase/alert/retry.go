@@ -8,6 +8,7 @@ import (
 
 	domainerrors "github.com/qj0r9j0vc2/alert-bridge/internal/domain/errors"
 	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/entity"
+	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/observability"
 )
 
 // RetryPolicy defines the retry behavior for failed operations.
@@ -36,28 +37,50 @@ type RetryableNotifier struct {
 	notifier Notifier
 	policy   RetryPolicy
 	logger   Logger
+	metrics  *observability.Metrics
 }
 
 // NewRetryableNotifier creates a new RetryableNotifier with the given policy.
-func NewRetryableNotifier(notifier Notifier, policy RetryPolicy, logger Logger) *RetryableNotifier {
+func NewRetryableNotifier(notifier Notifier, policy RetryPolicy, logger Logger, metrics *observability.Metrics) *RetryableNotifier {
 	return &RetryableNotifier{
 		notifier: notifier,
 		policy:   policy,
 		logger:   logger,
+		metrics:  metrics,
 	}
 }
 
 // Notify sends a notification with retry logic for transient failures.
 func (r *RetryableNotifier) Notify(ctx context.Context, alert *entity.Alert) (string, error) {
+	start := time.Now()
 	var lastErr error
 	var messageID string
+	var success bool
+	retriesUsed := 0
+
+	defer func() {
+		duration := time.Since(start)
+		if r.metrics != nil {
+			r.metrics.RecordNotificationSent(
+				ctx,
+				r.notifier.Name(),
+				success,
+				duration,
+				retriesUsed,
+			)
+		}
+	}()
 
 	for attempt := 1; attempt <= r.policy.MaxAttempts; attempt++ {
+		if attempt > 1 {
+			retriesUsed++
+		}
 		// Attempt notification
 		messageID, lastErr = r.notifier.Notify(ctx, alert)
 
 		// Success - return immediately
 		if lastErr == nil {
+			success = true
 			if attempt > 1 {
 				r.logger.Info("notification succeeded after retry",
 					"notifier", r.notifier.Name(),

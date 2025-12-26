@@ -9,6 +9,7 @@ import (
 	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/entity"
 	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/logger"
 	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/repository"
+	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/observability"
 )
 
 // SyncAckInput contains acknowledgment details from any source.
@@ -58,6 +59,7 @@ type SyncAckUseCase struct {
 	txManager    repository.TransactionManager
 	syncers      []AckSyncer
 	logger       Logger
+	metrics      *observability.Metrics
 }
 
 // NewSyncAckUseCase creates a new SyncAckUseCase with dependencies.
@@ -67,6 +69,7 @@ func NewSyncAckUseCase(
 	txManager repository.TransactionManager,
 	syncers []AckSyncer,
 	logger Logger,
+	metrics *observability.Metrics,
 ) *SyncAckUseCase {
 	return &SyncAckUseCase{
 		alertRepo:    alertRepo,
@@ -74,11 +77,26 @@ func NewSyncAckUseCase(
 		txManager:    txManager,
 		syncers:      syncers,
 		logger:       logger,
+		metrics:      metrics,
 	}
 }
 
 // Execute processes an acknowledgment and syncs to all connected systems.
 func (uc *SyncAckUseCase) Execute(ctx context.Context, input SyncAckInput) (*SyncAckOutput, error) {
+	var syncedCount int
+	var errorCount int
+
+	defer func() {
+		if uc.metrics != nil {
+			uc.metrics.RecordAcknowledgmentSynced(
+				ctx,
+				string(input.Source),
+				syncedCount,
+				errorCount,
+			)
+		}
+	}()
+
 	output := &SyncAckOutput{}
 
 	// 1. Load the alert (outside transaction - read-only)
@@ -142,6 +160,10 @@ func (uc *SyncAckUseCase) Execute(ctx context.Context, input SyncAckInput) (*Syn
 
 	// 6. Sync to other systems (outside transaction - external API calls)
 	uc.syncToExternalSystems(ctx, alert, ackEvent, input.Source, output)
+
+	// Update metrics counters
+	syncedCount = len(output.SyncedTo)
+	errorCount = len(output.SyncErrors)
 
 	uc.logger.Info("ack synced",
 		"alertID", alert.ID,
