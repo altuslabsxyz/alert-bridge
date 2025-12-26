@@ -8,7 +8,8 @@ import (
 
 // GetAlertFixture loads an alert fixture by name
 func GetAlertFixture(name string) Alert {
-	fixturesPath := filepath.Join("test", "e2e", "fixtures", "alerts.json")
+	// Path is relative to the test package directory (test/e2e/)
+	fixturesPath := filepath.Join("fixtures", "alerts.json")
 
 	data, err := os.ReadFile(fixturesPath)
 	if err != nil {
@@ -30,7 +31,8 @@ func GetAlertFixture(name string) Alert {
 
 // GetAllAlertFixtures loads all alert fixtures
 func GetAllAlertFixtures() map[string]Alert {
-	fixturesPath := filepath.Join("test", "e2e", "fixtures", "alerts.json")
+	// Path is relative to the test package directory (test/e2e/)
+	fixturesPath := filepath.Join("fixtures", "alerts.json")
 
 	data, err := os.ReadFile(fixturesPath)
 	if err != nil {

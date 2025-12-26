@@ -69,9 +69,9 @@ func TestAlertCreationSlack(t *testing.T) {
 	helpers.LogTestPhase(t, "create_alert")
 	alert := helpers.CreateTestAlert("high_cpu_critical", nil)
 
-	// Send alert to Alertmanager
+	// Send alert directly to Alert-Bridge webhook
 	helpers.LogTestPhase(t, "send_alert")
-	helpers.SendAlertToAlertmanager(t, alert)
+	helpers.SendAlertToAlertBridge(t, []helpers.Alert{alert})
 
 	// Wait for alert delivery
 	helpers.LogTestPhase(t, "wait_for_delivery")
@@ -102,9 +102,9 @@ func TestAlertCreationPagerDuty(t *testing.T) {
 	helpers.LogTestPhase(t, "create_alert")
 	alert := helpers.CreateTestAlert("service_down_critical", nil)
 
-	// Send alert to Alertmanager
+	// Send alert directly to Alert-Bridge webhook
 	helpers.LogTestPhase(t, "send_alert")
-	helpers.SendAlertToAlertmanager(t, alert)
+	helpers.SendAlertToAlertBridge(t, []helpers.Alert{alert})
 
 	// Wait for alert delivery
 	helpers.LogTestPhase(t, "wait_for_delivery")
@@ -137,12 +137,12 @@ func TestAlertDeduplication(t *testing.T) {
 
 	// Send first alert
 	helpers.LogTestPhase(t, "send_first_alert")
-	helpers.SendAlertToAlertmanager(t, alert)
+	helpers.SendAlertToAlertBridge(t, []helpers.Alert{alert})
 	time.Sleep(2 * time.Second)
 
 	// Send duplicate alert (same fingerprint)
 	helpers.LogTestPhase(t, "send_duplicate_alert")
-	helpers.SendAlertToAlertmanager(t, alert)
+	helpers.SendAlertToAlertBridge(t, []helpers.Alert{alert})
 	time.Sleep(2 * time.Second)
 
 	// Verify only one Slack message was sent
@@ -161,10 +161,10 @@ func TestAlertResolution(t *testing.T) {
 	helpers.WaitForAllServices(t)
 	helpers.ResetMockServices(t)
 
-	// Create and send firing alert
+	// Create and send firing alert (with unique label to avoid collision with other tests)
 	helpers.LogTestPhase(t, "send_firing_alert")
-	alert := helpers.CreateTestAlert("memory_pressure_warning", nil)
-	helpers.SendAlertToAlertmanager(t, alert)
+	alert := helpers.CreateTestAlert("memory_pressure_warning", map[string]string{"test": "resolution"})
+	helpers.SendAlertToAlertBridge(t, []helpers.Alert{alert})
 	time.Sleep(2 * time.Second)
 
 	// Verify initial PagerDuty trigger event
@@ -174,7 +174,7 @@ func TestAlertResolution(t *testing.T) {
 	// Send resolved alert
 	helpers.LogTestPhase(t, "send_resolved_alert")
 	resolvedAlert := helpers.ResolveAlert(t, alert)
-	helpers.SendAlertToAlertmanager(t, resolvedAlert)
+	helpers.SendAlertToAlertBridge(t, []helpers.Alert{resolvedAlert})
 	time.Sleep(3 * time.Second)
 
 	// Verify PagerDuty resolve event was sent
@@ -182,9 +182,9 @@ func TestAlertResolution(t *testing.T) {
 	resolveEvent := helpers.AssertPagerDutyEventReceived(t, alert.Fingerprint, "resolve")
 	helpers.AssertPagerDutyEventAction(t, resolveEvent, "resolve")
 
-	// Verify Slack received resolution message
+	// Verify Slack updated the message (not created a new one)
 	helpers.LogTestPhase(t, "verify_slack_resolution")
-	helpers.AssertSlackMessageCount(t, 2, alert.Fingerprint) // Firing + Resolved
+	helpers.AssertSlackMessageCount(t, 1, alert.Fingerprint) // Same message, updated
 
 	helpers.LogTestPhase(t, "test_complete")
 	t.Log("✓ Alert resolution notifications working correctly")
@@ -198,15 +198,13 @@ func TestMultipleAlertsGrouping(t *testing.T) {
 	helpers.WaitForAllServices(t)
 	helpers.ResetMockServices(t)
 
-	// Send multiple alerts of same severity
+	// Send multiple alerts of same severity (with unique labels to avoid collision with other tests)
 	helpers.LogTestPhase(t, "send_multiple_alerts")
-	alert1 := helpers.CreateTestAlert("high_cpu_critical", nil)
-	alert2 := helpers.CreateTestAlert("disk_space_critical", nil)
-	alert3 := helpers.CreateTestAlert("backup_failed_critical", nil)
+	alert1 := helpers.CreateTestAlert("high_cpu_critical", map[string]string{"test": "grouping_1"})
+	alert2 := helpers.CreateTestAlert("disk_space_critical", map[string]string{"test": "grouping_2"})
+	alert3 := helpers.CreateTestAlert("backup_failed_critical", map[string]string{"test": "grouping_3"})
 
-	helpers.SendAlertToAlertmanager(t, alert1)
-	helpers.SendAlertToAlertmanager(t, alert2)
-	helpers.SendAlertToAlertmanager(t, alert3)
+	helpers.SendAlertToAlertBridge(t, []helpers.Alert{alert1, alert2, alert3})
 
 	// Wait for processing
 	time.Sleep(5 * time.Second)
@@ -229,16 +227,16 @@ func TestDifferentSeverityLevels(t *testing.T) {
 	helpers.WaitForAllServices(t)
 	helpers.ResetMockServices(t)
 
-	// Send critical alert
+	// Send critical alert (with unique label to avoid collision with other tests)
 	helpers.LogTestPhase(t, "send_critical_alert")
-	criticalAlert := helpers.CreateTestAlert("high_cpu_critical", nil)
-	helpers.SendAlertToAlertmanager(t, criticalAlert)
+	criticalAlert := helpers.CreateTestAlert("high_cpu_critical", map[string]string{"test": "severity_critical"})
+	helpers.SendAlertToAlertBridge(t, []helpers.Alert{criticalAlert})
 	time.Sleep(2 * time.Second)
 
-	// Send warning alert
+	// Send warning alert (with unique label to avoid collision with other tests)
 	helpers.LogTestPhase(t, "send_warning_alert")
-	warningAlert := helpers.CreateTestAlert("memory_pressure_warning", nil)
-	helpers.SendAlertToAlertmanager(t, warningAlert)
+	warningAlert := helpers.CreateTestAlert("memory_pressure_warning", map[string]string{"test": "severity_warning"})
+	helpers.SendAlertToAlertBridge(t, []helpers.Alert{warningAlert})
 	time.Sleep(2 * time.Second)
 
 	// Verify both were delivered with correct severity

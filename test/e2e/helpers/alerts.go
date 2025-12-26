@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"testing"
 	"time"
 )
 
 // Alert represents a Prometheus alert
 type Alert struct {
+	Status      string            `json:"status"` // "firing" or "resolved"
 	Labels      map[string]string `json:"labels"`
 	Annotations map[string]string `json:"annotations"`
 	StartsAt    time.Time         `json:"startsAt"`
@@ -46,8 +48,9 @@ func CreateTestAlert(fixtureName string, overrideLabels map[string]string) Alert
 		}
 	}
 
-	// Set timestamps
+	// Set timestamps and status
 	fixture.StartsAt = time.Now()
+	fixture.Status = "firing"
 
 	// Generate fingerprint
 	fixture.Fingerprint = GenerateFingerprint(fixture.Labels)
@@ -68,7 +71,7 @@ func SendAlertToAlertmanager(t *testing.T, alert Alert) {
 	}
 
 	resp, err := http.Post(
-		"http://localhost:9093/api/v1/alerts",
+		"http://localhost:9093/api/v2/alerts",
 		"application/json",
 		bytes.NewBuffer(payload),
 	)
@@ -89,11 +92,24 @@ func SendAlertToAlertmanager(t *testing.T, alert Alert) {
 func SendAlertToAlertBridge(t *testing.T, alerts []Alert) {
 	t.Helper()
 
+	// Determine webhook status based on alerts
+	webhookStatus := "firing"
+	allResolved := true
+	for _, alert := range alerts {
+		if alert.Status != "resolved" {
+			allResolved = false
+			break
+		}
+	}
+	if allResolved && len(alerts) > 0 {
+		webhookStatus = "resolved"
+	}
+
 	webhook := AlertmanagerWebhook{
 		Version:         "4",
 		GroupKey:        "test-group",
 		TruncatedAlerts: 0,
-		Status:          "firing",
+		Status:          webhookStatus,
 		Receiver:        "alert-bridge",
 		GroupLabels:     make(map[string]string),
 		CommonLabels:    make(map[string]string),
@@ -134,6 +150,7 @@ func ResolveAlert(t *testing.T, alert Alert) Alert {
 	t.Helper()
 
 	resolvedAlert := alert
+	resolvedAlert.Status = "resolved"
 	resolvedAlert.EndsAt = time.Now()
 
 	return resolvedAlert
@@ -146,6 +163,10 @@ func GenerateFingerprint(labels map[string]string) string {
 	for k := range labels {
 		keys = append(keys, k)
 	}
+
+	// Must sort keys for deterministic fingerprint
+	// This matches how Prometheus/Alertmanager generates fingerprints
+	sort.Strings(keys)
 
 	// Simple fingerprint generation (in real Prometheus this is more complex)
 	hash := sha256.New()
