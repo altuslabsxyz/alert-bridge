@@ -76,3 +76,189 @@ func ValidateDuration(duration time.Duration, fieldName string) error {
 	}
 	return nil
 }
+
+// ValidatePort checks if a port number is valid.
+func ValidatePort(port int, fieldName string) error {
+	if port < 1 || port > 65535 {
+		return fmt.Errorf("%s must be between 1 and 65535, got %d", fieldName, port)
+	}
+	return nil
+}
+
+// ValidateStorageType checks if the storage type is valid.
+func ValidateStorageType(storageType string) error {
+	validTypes := map[string]bool{
+		"memory": true,
+		"sqlite": true,
+		"mysql":  true,
+	}
+	if !validTypes[storageType] {
+		return fmt.Errorf("invalid storage type: %s (must be memory, sqlite, or mysql)", storageType)
+	}
+	return nil
+}
+
+// Validate performs comprehensive validation on the configuration.
+// Returns an error if any validation fails.
+func (c *Config) Validate() error {
+	var errors []string
+
+	// Server validation
+	if err := ValidatePort(c.Server.Port, "server.port"); err != nil {
+		errors = append(errors, err.Error())
+	}
+	if err := ValidateDuration(c.Server.ReadTimeout, "server.read_timeout"); err != nil {
+		errors = append(errors, err.Error())
+	}
+	if err := ValidateDuration(c.Server.WriteTimeout, "server.write_timeout"); err != nil {
+		errors = append(errors, err.Error())
+	}
+	if err := ValidateDuration(c.Server.RequestTimeout, "server.request_timeout"); err != nil {
+		errors = append(errors, err.Error())
+	}
+	if err := ValidateDuration(c.Server.ShutdownTimeout, "server.shutdown_timeout"); err != nil {
+		errors = append(errors, err.Error())
+	}
+
+	// Logical constraint: RequestTimeout should be less than WriteTimeout
+	if c.Server.RequestTimeout >= c.Server.WriteTimeout {
+		errors = append(errors, "server.request_timeout must be less than server.write_timeout")
+	}
+
+	// Storage validation
+	if err := ValidateStorageType(c.Storage.Type); err != nil {
+		errors = append(errors, err.Error())
+	}
+
+	// SQLite-specific validation
+	if c.Storage.Type == "sqlite" {
+		if err := ValidateNonEmpty(c.Storage.SQLite.Path, "storage.sqlite.path"); err != nil {
+			errors = append(errors, err.Error())
+		}
+	}
+
+	// MySQL-specific validation
+	if c.Storage.Type == "mysql" {
+		if err := ValidateNonEmpty(c.Storage.MySQL.Primary.Host, "storage.mysql.primary.host"); err != nil {
+			errors = append(errors, err.Error())
+		}
+		if err := ValidatePort(c.Storage.MySQL.Primary.Port, "storage.mysql.primary.port"); err != nil {
+			errors = append(errors, err.Error())
+		}
+		if err := ValidateNonEmpty(c.Storage.MySQL.Primary.Database, "storage.mysql.primary.database"); err != nil {
+			errors = append(errors, err.Error())
+		}
+		if err := ValidateNonEmpty(c.Storage.MySQL.Primary.Username, "storage.mysql.primary.username"); err != nil {
+			errors = append(errors, err.Error())
+		}
+		if err := ValidateNonEmpty(c.Storage.MySQL.Primary.Password, "storage.mysql.primary.password"); err != nil {
+			errors = append(errors, err.Error())
+		}
+
+		// Replica validation (if enabled)
+		if c.Storage.MySQL.Replica.Enabled {
+			if err := ValidateNonEmpty(c.Storage.MySQL.Replica.Host, "storage.mysql.replica.host"); err != nil {
+				errors = append(errors, err.Error())
+			}
+			if err := ValidatePort(c.Storage.MySQL.Replica.Port, "storage.mysql.replica.port"); err != nil {
+				errors = append(errors, err.Error())
+			}
+			if err := ValidateNonEmpty(c.Storage.MySQL.Replica.Database, "storage.mysql.replica.database"); err != nil {
+				errors = append(errors, err.Error())
+			}
+			if err := ValidateNonEmpty(c.Storage.MySQL.Replica.Username, "storage.mysql.replica.username"); err != nil {
+				errors = append(errors, err.Error())
+			}
+			if err := ValidateNonEmpty(c.Storage.MySQL.Replica.Password, "storage.mysql.replica.password"); err != nil {
+				errors = append(errors, err.Error())
+			}
+		}
+
+		// Connection pool validation
+		if c.Storage.MySQL.Pool.MaxOpenConns < 1 {
+			errors = append(errors, "storage.mysql.pool.max_open_conns must be at least 1")
+		}
+		if c.Storage.MySQL.Pool.MaxIdleConns < 0 {
+			errors = append(errors, "storage.mysql.pool.max_idle_conns cannot be negative")
+		}
+		if c.Storage.MySQL.Pool.MaxIdleConns > c.Storage.MySQL.Pool.MaxOpenConns {
+			errors = append(errors, "storage.mysql.pool.max_idle_conns cannot exceed max_open_conns")
+		}
+	}
+
+	// Slack validation
+	if c.IsSlackEnabled() {
+		if err := ValidateNonEmpty(c.Slack.BotToken, "slack.bot_token"); err != nil {
+			errors = append(errors, err.Error())
+		}
+		if err := ValidateNonEmpty(c.Slack.ChannelID, "slack.channel_id"); err != nil {
+			errors = append(errors, err.Error())
+		}
+		if err := ValidateNonEmpty(c.Slack.SigningSecret, "slack.signing_secret"); err != nil {
+			errors = append(errors, err.Error())
+		}
+	}
+
+	// PagerDuty validation
+	if c.IsPagerDutyEnabled() {
+		if err := ValidateNonEmpty(c.PagerDuty.APIToken, "pagerduty.api_token"); err != nil {
+			errors = append(errors, err.Error())
+		}
+		if err := ValidateNonEmpty(c.PagerDuty.RoutingKey, "pagerduty.routing_key"); err != nil {
+			errors = append(errors, err.Error())
+		}
+		if err := ValidateNonEmpty(c.PagerDuty.ServiceID, "pagerduty.service_id"); err != nil {
+			errors = append(errors, err.Error())
+		}
+		if err := ValidateNonEmpty(c.PagerDuty.FromEmail, "pagerduty.from_email"); err != nil {
+			errors = append(errors, err.Error())
+		}
+	}
+
+	// Alerting validation
+	if err := ValidateDuration(c.Alerting.DeduplicationWindow, "alerting.deduplication_window"); err != nil {
+		errors = append(errors, err.Error())
+	}
+	if err := ValidateDuration(c.Alerting.ResendInterval, "alerting.resend_interval"); err != nil {
+		errors = append(errors, err.Error())
+	}
+
+	// Logical constraint: ResendInterval should be greater than DeduplicationWindow
+	if c.Alerting.ResendInterval <= c.Alerting.DeduplicationWindow {
+		errors = append(errors, "alerting.resend_interval must be greater than alerting.deduplication_window")
+	}
+
+	// Silence durations validation
+	for _, duration := range c.Alerting.SilenceDurations {
+		if duration <= 0 {
+			errors = append(errors, fmt.Sprintf("alerting.silence_durations contains invalid duration: %s", duration))
+		}
+	}
+
+	// Logging validation
+	if err := ValidateLogLevel(c.Logging.Level); err != nil {
+		errors = append(errors, err.Error())
+	}
+	if err := ValidateLogFormat(c.Logging.Format); err != nil {
+		errors = append(errors, err.Error())
+	}
+
+	// Return all validation errors
+	if len(errors) > 0 {
+		return fmt.Errorf("configuration validation failed:\n  - %s", joinErrors(errors))
+	}
+
+	return nil
+}
+
+// joinErrors joins multiple error messages with newlines and bullets.
+func joinErrors(errors []string) string {
+	if len(errors) == 0 {
+		return ""
+	}
+	result := errors[0]
+	for i := 1; i < len(errors); i++ {
+		result += "\n  - " + errors[i]
+	}
+	return result
+}

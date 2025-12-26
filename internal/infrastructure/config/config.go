@@ -144,8 +144,8 @@ func Load(path string) (*Config, error) {
 	cfg.applyDefaults()
 
 	// Validate
-	if err := cfg.validate(); err != nil {
-		return nil, fmt.Errorf("validating config: %w", err)
+	if err := cfg.Validate(); err != nil {
+		return nil, err
 	}
 
 	return cfg, nil
@@ -293,10 +293,10 @@ func (c *Config) applyDefaults() {
 		c.Server.ReadTimeout = 5 * time.Second
 	}
 	if c.Server.WriteTimeout == 0 {
-		c.Server.WriteTimeout = 10 * time.Second
+		c.Server.WriteTimeout = 30 * time.Second
 	}
 	if c.Server.RequestTimeout == 0 {
-		c.Server.RequestTimeout = 30 * time.Second
+		c.Server.RequestTimeout = 25 * time.Second
 	}
 	if c.Server.ShutdownTimeout == 0 {
 		c.Server.ShutdownTimeout = 30 * time.Second
@@ -370,82 +370,10 @@ func (c *Config) applyDefaults() {
 }
 
 // validate checks that required configuration is present.
+// validate is deprecated - use Validate() from validator.go instead
+// Kept for backward compatibility but should not be used
 func (c *Config) validate() error {
-	if c.Slack.Enabled {
-		if c.Slack.BotToken == "" {
-			return fmt.Errorf("slack.bot_token is required when slack is enabled")
-		}
-		if c.Slack.SigningSecret == "" {
-			return fmt.Errorf("slack.signing_secret is required when slack is enabled")
-		}
-		if c.Slack.ChannelID == "" {
-			return fmt.Errorf("slack.channel_id is required when slack is enabled")
-		}
-	}
-
-	if c.PagerDuty.Enabled {
-		// Either routing key (Events API v2) or API token (REST API) is needed
-		if c.PagerDuty.RoutingKey == "" && c.PagerDuty.APIToken == "" {
-			return fmt.Errorf("pagerduty.routing_key or pagerduty.api_token is required when pagerduty is enabled")
-		}
-	}
-
-	// Validate log level
-	validLevels := map[string]bool{"debug": true, "info": true, "warn": true, "error": true}
-	if !validLevels[strings.ToLower(c.Logging.Level)] {
-		return fmt.Errorf("invalid log level: %s (must be debug, info, warn, or error)", c.Logging.Level)
-	}
-
-	// Validate log format
-	validFormats := map[string]bool{"json": true, "text": true}
-	if !validFormats[strings.ToLower(c.Logging.Format)] {
-		return fmt.Errorf("invalid log format: %s (must be json or text)", c.Logging.Format)
-	}
-
-	// Validate storage type
-	validStorageTypes := map[string]bool{"memory": true, "sqlite": true, "mysql": true}
-	if !validStorageTypes[strings.ToLower(c.Storage.Type)] {
-		return fmt.Errorf("invalid storage type: %s (must be memory, sqlite, or mysql)", c.Storage.Type)
-	}
-
-	// Validate SQLite path if storage type is sqlite
-	if strings.ToLower(c.Storage.Type) == "sqlite" && c.Storage.SQLite.Path == "" {
-		return fmt.Errorf("storage.sqlite.path is required when storage type is sqlite")
-	}
-
-	// Validate MySQL config if storage type is mysql
-	if strings.ToLower(c.Storage.Type) == "mysql" {
-		if c.Storage.MySQL.Primary.Host == "" {
-			return fmt.Errorf("storage.mysql.primary.host is required when storage type is mysql")
-		}
-		if c.Storage.MySQL.Primary.Database == "" {
-			return fmt.Errorf("storage.mysql.primary.database is required when storage type is mysql")
-		}
-		if c.Storage.MySQL.Primary.Username == "" {
-			return fmt.Errorf("storage.mysql.primary.username is required when storage type is mysql")
-		}
-		if c.Storage.MySQL.Primary.Password == "" {
-			return fmt.Errorf("storage.mysql.primary.password is required when storage type is mysql")
-		}
-
-		// Validate replica config if enabled
-		if c.Storage.MySQL.Replica.Enabled {
-			if c.Storage.MySQL.Replica.Host == "" {
-				return fmt.Errorf("storage.mysql.replica.host is required when replica is enabled")
-			}
-			if c.Storage.MySQL.Replica.Database == "" {
-				return fmt.Errorf("storage.mysql.replica.database is required when replica is enabled")
-			}
-			if c.Storage.MySQL.Replica.Username == "" {
-				return fmt.Errorf("storage.mysql.replica.username is required when replica is enabled")
-			}
-			if c.Storage.MySQL.Replica.Password == "" {
-				return fmt.Errorf("storage.mysql.replica.password is required when replica is enabled")
-			}
-		}
-	}
-
-	return nil
+	return c.Validate()
 }
 
 // IsSlackEnabled returns true if Slack integration is enabled.
