@@ -50,6 +50,9 @@ func NewMockSlackHandler() *MockSlackHandler {
 
 // ServeHTTP implements the http.Handler interface
 func (h *MockSlackHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Log all incoming requests for debugging
+	fmt.Printf("[MOCK-SLACK] %s %s\n", r.Method, r.URL.Path)
+
 	w.Header().Set("Content-Type", "application/json")
 
 	switch r.URL.Path {
@@ -64,6 +67,7 @@ func (h *MockSlackHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "/api/test/reset":
 		h.handleReset(w, r)
 	default:
+		fmt.Printf("[MOCK-SLACK] 404 Not Found: %s\n", r.URL.Path)
 		http.NotFound(w, r)
 	}
 }
@@ -81,18 +85,56 @@ func (h *MockSlackHandler) handlePostMessage(w http.ResponseWriter, r *http.Requ
 	}
 
 	var msg SlackMessage
-	if err := json.NewDecoder(r.Body).Decode(&msg); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(SlackResponse{
-			OK:      false,
-			Error:   "invalid_json",
-			Details: err.Error(),
-		})
-		return
+
+	// Slack API accepts both JSON and form-urlencoded
+	contentType := r.Header.Get("Content-Type")
+	if contentType == "application/x-www-form-urlencoded" {
+		// Parse form-encoded data
+		if err := r.ParseForm(); err != nil {
+			fmt.Printf("[MOCK-SLACK] Form parse error: %v\n", err)
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(SlackResponse{
+				OK:      false,
+				Error:   "invalid_form",
+				Details: err.Error(),
+			})
+			return
+		}
+
+		msg.Channel = r.FormValue("channel")
+		msg.Text = r.FormValue("text")
+		msg.ThreadTS = r.FormValue("thread_ts")
+
+		// Parse blocks if provided as JSON string
+		if blocksJSON := r.FormValue("blocks"); blocksJSON != "" {
+			if err := json.Unmarshal([]byte(blocksJSON), &msg.Blocks); err != nil {
+				fmt.Printf("[MOCK-SLACK] Blocks JSON parse error: %v\n", err)
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(SlackResponse{
+					OK:      false,
+					Error:   "invalid_blocks_json",
+					Details: err.Error(),
+				})
+				return
+			}
+		}
+	} else {
+		// Parse JSON
+		if err := json.NewDecoder(r.Body).Decode(&msg); err != nil {
+			fmt.Printf("[MOCK-SLACK] JSON decode error: %v\n", err)
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(SlackResponse{
+				OK:      false,
+				Error:   "invalid_json",
+				Details: err.Error(),
+			})
+			return
+		}
 	}
 
 	// Validate required fields
 	if msg.Channel == "" {
+		fmt.Printf("[MOCK-SLACK] Channel validation failed: empty channel\n")
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(SlackResponse{
 			OK:      false,
@@ -104,6 +146,7 @@ func (h *MockSlackHandler) handlePostMessage(w http.ResponseWriter, r *http.Requ
 
 	// Validate Block Kit structure
 	if err := h.validateBlocks(msg.Blocks); err != nil {
+		fmt.Printf("[MOCK-SLACK] Block validation failed: %v\n", err)
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(SlackResponse{
 			OK:      false,
@@ -127,6 +170,8 @@ func (h *MockSlackHandler) handlePostMessage(w http.ResponseWriter, r *http.Requ
 	stored.TS = ts
 	h.messages = append(h.messages, stored)
 	h.mu.Unlock()
+
+	fmt.Printf("[MOCK-SLACK] Message stored successfully: channel=%s, ts=%s, blocks=%d\n", msg.Channel, ts, len(msg.Blocks))
 
 	// Return success response
 	json.NewEncoder(w).Encode(SlackResponse{
@@ -270,7 +315,7 @@ func (h *MockSlackHandler) validateBlocks(blocks []interface{}) error {
 			if err := h.validateSectionBlock(blockMap, i); err != nil {
 				return err
 			}
-		case "actions", "divider":
+		case "actions", "divider", "context":
 			// These types have flexible validation
 		default:
 			return fmt.Errorf("block[%d] has unsupported type: %s", i, blockType)

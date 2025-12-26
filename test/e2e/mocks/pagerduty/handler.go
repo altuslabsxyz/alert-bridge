@@ -81,6 +81,9 @@ func NewMockPagerDutyHandler() *MockPagerDutyHandler {
 
 // ServeHTTP implements the http.Handler interface
 func (h *MockPagerDutyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Log all incoming requests for debugging
+	fmt.Printf("[MOCK-PAGERDUTY] %s %s\n", r.Method, r.URL.Path)
+
 	w.Header().Set("Content-Type", "application/json")
 
 	switch r.URL.Path {
@@ -93,6 +96,7 @@ func (h *MockPagerDutyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	case "/api/test/reset":
 		h.handleReset(w, r)
 	default:
+		fmt.Printf("[MOCK-PAGERDUTY] 404 Not Found: %s\n", r.URL.Path)
 		http.NotFound(w, r)
 	}
 }
@@ -151,6 +155,8 @@ func (h *MockPagerDutyHandler) handleEnqueue(w http.ResponseWriter, r *http.Requ
 	stored.DedupKey = dedupKey
 	h.events = append(h.events, stored)
 	h.mu.Unlock()
+
+	fmt.Printf("[MOCK-PAGERDUTY] Event stored successfully: dedup_key=%s, action=%s\n", dedupKey, event.EventAction)
 
 	// Return success response (202 Accepted)
 	w.WriteHeader(http.StatusAccepted)
