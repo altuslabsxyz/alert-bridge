@@ -47,7 +47,7 @@ func TestQuickstartValidation(t *testing.T) {
 		defer db.Close()
 
 		// Create repositories
-		repos := sqlite.NewRepositories(db.DB)
+		repos := sqlite.NewRepositories(db)
 		t.Log("Repositories created")
 
 		// Test Alert Repository
@@ -123,7 +123,7 @@ func TestQuickstartValidation(t *testing.T) {
 		require.NoError(t, err)
 		defer db.Close()
 
-		repos := sqlite.NewRepositories(db.DB)
+		repos := sqlite.NewRepositories(db)
 
 		// Verify alert persisted
 		alert, err := repos.Alert.FindByID(context.Background(), "quickstart-alert")

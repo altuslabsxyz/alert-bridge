@@ -20,7 +20,7 @@ func setupSilenceTest(t *testing.T) (*DB, *SilenceRepository) {
 	err = db.Migrate(context.Background())
 	require.NoError(t, err)
 
-	repo := NewSilenceRepository(db.DB)
+	repo := NewSilenceRepository(db)
 
 	return db, repo
 }

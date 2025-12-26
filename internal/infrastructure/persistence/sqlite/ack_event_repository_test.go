@@ -19,8 +19,8 @@ func setupAckEventTest(t *testing.T) (*DB, *AlertRepository, *AckEventRepository
 	err = db.Migrate(context.Background())
 	require.NoError(t, err)
 
-	alertRepo := NewAlertRepository(db.DB)
-	ackRepo := NewAckEventRepository(db.DB)
+	alertRepo := NewAlertRepository(db)
+	ackRepo := NewAckEventRepository(db)
 
 	return db, alertRepo, ackRepo
 }

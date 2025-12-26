@@ -10,18 +10,18 @@ import (
 
 // AckEventRepository provides SQLite implementation of repository.AckEventRepository.
 type AckEventRepository struct {
-	db *sql.DB
+	db *DB
 }
 
 // NewAckEventRepository creates a new SQLite-backed ack event repository.
-func NewAckEventRepository(db *sql.DB) *AckEventRepository {
+func NewAckEventRepository(db *DB) *AckEventRepository {
 	return &AckEventRepository{db: db}
 }
 
 // Save persists a new ack event.
 // Returns error if the referenced alert doesn't exist (foreign key constraint).
 func (r *AckEventRepository) Save(ctx context.Context, event *entity.AckEvent) error {
-	_, err := r.db.ExecContext(ctx, `
+	_, err := r.db.getExecutor(ctx).ExecContext(ctx, `
 		INSERT INTO ack_events (
 			id, alert_id, source, user_id, user_email, user_name,
 			note, duration_seconds, created_at
@@ -46,7 +46,7 @@ func (r *AckEventRepository) Save(ctx context.Context, event *entity.AckEvent) e
 // FindByID retrieves an ack event by its unique identifier.
 // Returns nil, nil if not found.
 func (r *AckEventRepository) FindByID(ctx context.Context, id string) (*entity.AckEvent, error) {
-	row := r.db.QueryRowContext(ctx, `
+	row := r.db.getExecutor(ctx).QueryRowContext(ctx, `
 		SELECT id, alert_id, source, user_id, user_email, user_name,
 			note, duration_seconds, created_at
 		FROM ack_events WHERE id = ?
@@ -58,7 +58,7 @@ func (r *AckEventRepository) FindByID(ctx context.Context, id string) (*entity.A
 // FindByAlertID retrieves all ack events for an alert, ordered by creation time (oldest first).
 // Returns empty slice if none found.
 func (r *AckEventRepository) FindByAlertID(ctx context.Context, alertID string) ([]*entity.AckEvent, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.db.getExecutor(ctx).QueryContext(ctx, `
 		SELECT id, alert_id, source, user_id, user_email, user_name,
 			note, duration_seconds, created_at
 		FROM ack_events WHERE alert_id = ?
@@ -75,7 +75,7 @@ func (r *AckEventRepository) FindByAlertID(ctx context.Context, alertID string) 
 // FindLatestByAlertID retrieves the most recent ack event for an alert.
 // Returns nil, nil if not found.
 func (r *AckEventRepository) FindLatestByAlertID(ctx context.Context, alertID string) (*entity.AckEvent, error) {
-	row := r.db.QueryRowContext(ctx, `
+	row := r.db.getExecutor(ctx).QueryRowContext(ctx, `
 		SELECT id, alert_id, source, user_id, user_email, user_name,
 			note, duration_seconds, created_at
 		FROM ack_events WHERE alert_id = ?

@@ -21,7 +21,7 @@ func BenchmarkAlertSave(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	repo := NewAlertRepository(db.DB)
+	repo := NewAlertRepository(db)
 	ctx := context.Background()
 
 	b.ResetTimer()
@@ -56,7 +56,7 @@ func BenchmarkAlertFindByID(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	repo := NewAlertRepository(db.DB)
+	repo := NewAlertRepository(db)
 	ctx := context.Background()
 
 	// Prepopulate with alerts
@@ -101,7 +101,7 @@ func BenchmarkAlertFindActive(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	repo := NewAlertRepository(db.DB)
+	repo := NewAlertRepository(db)
 	ctx := context.Background()
 
 	// Prepopulate with alerts (80% active, 20% resolved)
@@ -148,8 +148,8 @@ func BenchmarkAckEventSave(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	alertRepo := NewAlertRepository(db.DB)
-	ackRepo := NewAckEventRepository(db.DB)
+	alertRepo := NewAlertRepository(db)
+	ackRepo := NewAckEventRepository(db)
 	ctx := context.Background()
 
 	// Create base alert
@@ -198,7 +198,7 @@ func BenchmarkSilenceFindMatchingAlert(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	repo := NewSilenceRepository(db.DB)
+	repo := NewSilenceRepository(db)
 	ctx := context.Background()
 
 	// Prepopulate with silences
@@ -247,7 +247,7 @@ func BenchmarkAlertUpdate(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	repo := NewAlertRepository(db.DB)
+	repo := NewAlertRepository(db)
 	ctx := context.Background()
 
 	// Create initial alert

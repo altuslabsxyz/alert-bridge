@@ -22,7 +22,7 @@ func setupAlertRepo(t *testing.T) (*AlertRepository, func()) {
 		t.Fatalf("failed to migrate: %v", err)
 	}
 
-	return NewAlertRepository(db.DB), func() { db.Close() }
+	return NewAlertRepository(db), func() { db.Close() }
 }
 
 func TestAlertRepository_Save(t *testing.T) {

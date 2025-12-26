@@ -11,11 +11,11 @@ import (
 
 // SilenceRepository provides SQLite implementation of repository.SilenceRepository.
 type SilenceRepository struct {
-	db *sql.DB
+	db *DB
 }
 
 // NewSilenceRepository creates a new SQLite-backed silence repository.
-func NewSilenceRepository(db *sql.DB) *SilenceRepository {
+func NewSilenceRepository(db *DB) *SilenceRepository {
 	return &SilenceRepository{db: db}
 }
 
@@ -26,7 +26,7 @@ func (r *SilenceRepository) Save(ctx context.Context, silence *entity.SilenceMar
 		return fmt.Errorf("marshal labels: %w", err)
 	}
 
-	_, err = r.db.ExecContext(ctx, `
+	_, err = r.db.getExecutor(ctx).ExecContext(ctx, `
 		INSERT INTO silences (
 			id, alert_id, instance, fingerprint, labels,
 			start_at, end_at, created_by, created_by_email, reason, source, created_at
@@ -56,7 +56,7 @@ func (r *SilenceRepository) Save(ctx context.Context, silence *entity.SilenceMar
 // FindByID retrieves a silence by its unique identifier.
 // Returns nil, nil if not found.
 func (r *SilenceRepository) FindByID(ctx context.Context, id string) (*entity.SilenceMark, error) {
-	row := r.db.QueryRowContext(ctx, `
+	row := r.db.getExecutor(ctx).QueryRowContext(ctx, `
 		SELECT id, alert_id, instance, fingerprint, labels,
 			start_at, end_at, created_by, created_by_email, reason, source, created_at
 		FROM silences WHERE id = ?
@@ -70,7 +70,7 @@ func (r *SilenceRepository) FindByID(ctx context.Context, id string) (*entity.Si
 func (r *SilenceRepository) FindActive(ctx context.Context) ([]*entity.SilenceMark, error) {
 	now := timeToString(time.Now().UTC())
 
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.db.getExecutor(ctx).QueryContext(ctx, `
 		SELECT id, alert_id, instance, fingerprint, labels,
 			start_at, end_at, created_by, created_by_email, reason, source, created_at
 		FROM silences
@@ -89,7 +89,7 @@ func (r *SilenceRepository) FindActive(ctx context.Context) ([]*entity.SilenceMa
 func (r *SilenceRepository) FindByAlertID(ctx context.Context, alertID string) ([]*entity.SilenceMark, error) {
 	now := timeToString(time.Now().UTC())
 
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.db.getExecutor(ctx).QueryContext(ctx, `
 		SELECT id, alert_id, instance, fingerprint, labels,
 			start_at, end_at, created_by, created_by_email, reason, source, created_at
 		FROM silences
@@ -108,7 +108,7 @@ func (r *SilenceRepository) FindByAlertID(ctx context.Context, alertID string) (
 func (r *SilenceRepository) FindByInstance(ctx context.Context, instance string) ([]*entity.SilenceMark, error) {
 	now := timeToString(time.Now().UTC())
 
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.db.getExecutor(ctx).QueryContext(ctx, `
 		SELECT id, alert_id, instance, fingerprint, labels,
 			start_at, end_at, created_by, created_by_email, reason, source, created_at
 		FROM silences
@@ -127,7 +127,7 @@ func (r *SilenceRepository) FindByInstance(ctx context.Context, instance string)
 func (r *SilenceRepository) FindByFingerprint(ctx context.Context, fingerprint string) ([]*entity.SilenceMark, error) {
 	now := timeToString(time.Now().UTC())
 
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.db.getExecutor(ctx).QueryContext(ctx, `
 		SELECT id, alert_id, instance, fingerprint, labels,
 			start_at, end_at, created_by, created_by_email, reason, source, created_at
 		FROM silences
@@ -148,7 +148,7 @@ func (r *SilenceRepository) FindMatchingAlert(ctx context.Context, alert *entity
 	now := timeToString(time.Now().UTC())
 
 	// Query all active silences
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.db.getExecutor(ctx).QueryContext(ctx, `
 		SELECT id, alert_id, instance, fingerprint, labels,
 			start_at, end_at, created_by, created_by_email, reason, source, created_at
 		FROM silences
@@ -183,7 +183,7 @@ func (r *SilenceRepository) Update(ctx context.Context, silence *entity.SilenceM
 		return fmt.Errorf("marshal labels: %w", err)
 	}
 
-	result, err := r.db.ExecContext(ctx, `
+	result, err := r.db.getExecutor(ctx).ExecContext(ctx, `
 		UPDATE silences SET
 			alert_id = ?, instance = ?, fingerprint = ?, labels = ?,
 			start_at = ?, end_at = ?, created_by = ?, created_by_email = ?,
@@ -220,7 +220,7 @@ func (r *SilenceRepository) Update(ctx context.Context, silence *entity.SilenceM
 // Delete removes a silence by ID.
 // Returns ErrSilenceNotFound if the silence doesn't exist.
 func (r *SilenceRepository) Delete(ctx context.Context, id string) error {
-	result, err := r.db.ExecContext(ctx, `DELETE FROM silences WHERE id = ?`, id)
+	result, err := r.db.getExecutor(ctx).ExecContext(ctx, `DELETE FROM silences WHERE id = ?`, id)
 	if err != nil {
 		return fmt.Errorf("delete silence: %w", err)
 	}
@@ -241,7 +241,7 @@ func (r *SilenceRepository) Delete(ctx context.Context, id string) error {
 func (r *SilenceRepository) DeleteExpired(ctx context.Context) (int, error) {
 	now := timeToString(time.Now().UTC())
 
-	result, err := r.db.ExecContext(ctx, `DELETE FROM silences WHERE end_at < ?`, now)
+	result, err := r.db.getExecutor(ctx).ExecContext(ctx, `DELETE FROM silences WHERE end_at < ?`, now)
 	if err != nil {
 		return 0, fmt.Errorf("delete expired silences: %w", err)
 	}

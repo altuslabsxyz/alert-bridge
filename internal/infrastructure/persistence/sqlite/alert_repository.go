@@ -10,11 +10,11 @@ import (
 
 // AlertRepository provides SQLite implementation of repository.AlertRepository.
 type AlertRepository struct {
-	db *sql.DB
+	db *DB
 }
 
 // NewAlertRepository creates a new SQLite-backed alert repository.
-func NewAlertRepository(db *sql.DB) *AlertRepository {
+func NewAlertRepository(db *DB) *AlertRepository {
 	return &AlertRepository{db: db}
 }
 
@@ -36,7 +36,7 @@ func (r *AlertRepository) Save(ctx context.Context, alert *entity.Alert) error {
 		return fmt.Errorf("marshal external references: %w", err)
 	}
 
-	_, err = r.db.ExecContext(ctx, `
+	_, err = r.db.getExecutor(ctx).ExecContext(ctx, `
 		INSERT INTO alerts (
 			id, fingerprint, name, instance, target, summary, description,
 			severity, state, labels, annotations,
@@ -66,7 +66,7 @@ func (r *AlertRepository) Save(ctx context.Context, alert *entity.Alert) error {
 // FindByID retrieves an alert by its unique identifier.
 // Returns nil, nil if not found.
 func (r *AlertRepository) FindByID(ctx context.Context, id string) (*entity.Alert, error) {
-	row := r.db.QueryRowContext(ctx, `
+	row := r.db.getExecutor(ctx).QueryRowContext(ctx, `
 		SELECT id, fingerprint, name, instance, target, summary, description,
 			severity, state, labels, annotations,
 			external_references,
@@ -80,7 +80,7 @@ func (r *AlertRepository) FindByID(ctx context.Context, id string) (*entity.Aler
 // FindByFingerprint finds alerts matching the Alertmanager fingerprint.
 // Returns empty slice if none found.
 func (r *AlertRepository) FindByFingerprint(ctx context.Context, fingerprint string) ([]*entity.Alert, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.db.getExecutor(ctx).QueryContext(ctx, `
 		SELECT id, fingerprint, name, instance, target, summary, description,
 			severity, state, labels, annotations,
 			external_references,
@@ -98,7 +98,7 @@ func (r *AlertRepository) FindByFingerprint(ctx context.Context, fingerprint str
 // FindByExternalReference finds an alert by its external integration reference.
 // Returns nil, nil if not found.
 func (r *AlertRepository) FindByExternalReference(ctx context.Context, system, referenceID string) (*entity.Alert, error) {
-	row := r.db.QueryRowContext(ctx, `
+	row := r.db.getExecutor(ctx).QueryRowContext(ctx, `
 		SELECT id, fingerprint, name, instance, target, summary, description,
 			severity, state, labels, annotations,
 			external_references,
@@ -128,7 +128,7 @@ func (r *AlertRepository) Update(ctx context.Context, alert *entity.Alert) error
 		return fmt.Errorf("marshal external references: %w", err)
 	}
 
-	result, err := r.db.ExecContext(ctx, `
+	result, err := r.db.getExecutor(ctx).ExecContext(ctx, `
 		UPDATE alerts SET
 			fingerprint = ?, name = ?, instance = ?, target = ?, summary = ?, description = ?,
 			severity = ?, state = ?, labels = ?, annotations = ?,
@@ -162,7 +162,7 @@ func (r *AlertRepository) Update(ctx context.Context, alert *entity.Alert) error
 
 // FindActive returns all currently active (non-resolved) alerts.
 func (r *AlertRepository) FindActive(ctx context.Context) ([]*entity.Alert, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.db.getExecutor(ctx).QueryContext(ctx, `
 		SELECT id, fingerprint, name, instance, target, summary, description,
 			severity, state, labels, annotations,
 			external_references,
@@ -179,7 +179,7 @@ func (r *AlertRepository) FindActive(ctx context.Context) ([]*entity.Alert, erro
 
 // FindFiring returns all firing alerts (active or acknowledged).
 func (r *AlertRepository) FindFiring(ctx context.Context) ([]*entity.Alert, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := r.db.getExecutor(ctx).QueryContext(ctx, `
 		SELECT id, fingerprint, name, instance, target, summary, description,
 			severity, state, labels, annotations,
 			external_references,
@@ -197,7 +197,7 @@ func (r *AlertRepository) FindFiring(ctx context.Context) ([]*entity.Alert, erro
 // Delete removes an alert by ID.
 // Returns ErrAlertNotFound if the alert doesn't exist.
 func (r *AlertRepository) Delete(ctx context.Context, id string) error {
-	result, err := r.db.ExecContext(ctx, `DELETE FROM alerts WHERE id = ?`, id)
+	result, err := r.db.getExecutor(ctx).ExecContext(ctx, `DELETE FROM alerts WHERE id = ?`, id)
 	if err != nil {
 		return fmt.Errorf("delete alert: %w", err)
 	}

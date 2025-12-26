@@ -28,9 +28,9 @@ func TestPersistenceAcrossRestart(t *testing.T) {
 		err = db.Migrate(context.Background())
 		require.NoError(t, err)
 
-		alertRepo := NewAlertRepository(db.DB)
-		ackRepo := NewAckEventRepository(db.DB)
-		silenceRepo := NewSilenceRepository(db.DB)
+		alertRepo := NewAlertRepository(db)
+		ackRepo := NewAckEventRepository(db)
+		silenceRepo := NewSilenceRepository(db)
 
 		// Create alert
 		alert := &entity.Alert{
@@ -93,9 +93,9 @@ func TestPersistenceAcrossRestart(t *testing.T) {
 		err = db.Migrate(context.Background())
 		require.NoError(t, err)
 
-		alertRepo := NewAlertRepository(db.DB)
-		ackRepo := NewAckEventRepository(db.DB)
-		silenceRepo := NewSilenceRepository(db.DB)
+		alertRepo := NewAlertRepository(db)
+		ackRepo := NewAckEventRepository(db)
+		silenceRepo := NewSilenceRepository(db)
 
 		// Verify alert persisted
 		alert, err := alertRepo.FindByID(context.Background(), "persist-alert")
@@ -132,8 +132,8 @@ func TestConcurrentWrites(t *testing.T) {
 	err = db.Migrate(context.Background())
 	require.NoError(t, err)
 
-	alertRepo := NewAlertRepository(db.DB)
-	ackRepo := NewAckEventRepository(db.DB)
+	alertRepo := NewAlertRepository(db)
+	ackRepo := NewAckEventRepository(db)
 
 	// Create base alert
 	alert := &entity.Alert{
@@ -192,7 +192,7 @@ func TestForeignKeyConstraints(t *testing.T) {
 	err = db.Migrate(context.Background())
 	require.NoError(t, err)
 
-	ackRepo := NewAckEventRepository(db.DB)
+	ackRepo := NewAckEventRepository(db)
 
 	// Try to create ack event for non-existent alert
 	ackEvent := &entity.AckEvent{
@@ -219,8 +219,8 @@ func TestCascadeDelete(t *testing.T) {
 	err = db.Migrate(context.Background())
 	require.NoError(t, err)
 
-	alertRepo := NewAlertRepository(db.DB)
-	ackRepo := NewAckEventRepository(db.DB)
+	alertRepo := NewAlertRepository(db)
+	ackRepo := NewAckEventRepository(db)
 
 	// Create alert with ack events
 	alert := &entity.Alert{

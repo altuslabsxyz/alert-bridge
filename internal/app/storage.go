@@ -40,7 +40,7 @@ func (app *Application) initializeStorage() error {
 			return fmt.Errorf("sqlite migration: %w", err)
 		}
 
-		repos := sqlite.NewRepositories(db.DB)
+		repos := sqlite.NewRepositories(db)
 		app.alertRepo = repos.Alert
 		app.ackEventRepo = repos.AckEvent
 		app.silenceRepo = repos.Silence
