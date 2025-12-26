@@ -65,23 +65,23 @@ func (b *MessageBuilder) BuildAlertMessage(alert *entity.Alert) []slack.Block {
 	return blocks
 }
 
-// buildHeader creates the header text with appropriate emoji.
+// buildHeader creates the header text with appropriate status prefix.
 func (b *MessageBuilder) buildHeader(alert *entity.Alert) string {
-	var emoji string
+	var prefix string
 	switch {
 	case alert.IsResolved():
-		emoji = "✅"
+		prefix = "[RESOLVED]"
 	case alert.IsAcked():
-		emoji = "👀"
+		prefix = "[ACKED]"
 	case alert.Severity == entity.SeverityCritical:
-		emoji = "🔴"
+		prefix = "[CRITICAL]"
 	case alert.Severity == entity.SeverityWarning:
-		emoji = "🟡"
+		prefix = "[WARNING]"
 	default:
-		emoji = "🔵"
+		prefix = "[INFO]"
 	}
 
-	return fmt.Sprintf("%s %s", emoji, alert.Name)
+	return fmt.Sprintf("%s %s", prefix, alert.Name)
 }
 
 // buildDetailsSection creates the details section with fields.
@@ -115,7 +115,7 @@ func (b *MessageBuilder) buildStatusContext(alert *entity.Alert) *slack.ContextB
 	firedAt := alert.FiredAt.Format("Jan 2, 15:04 MST")
 	elements = append(elements,
 		slack.NewTextBlockObject(slack.MarkdownType,
-			fmt.Sprintf("🔥 Fired: %s", firedAt), false, false))
+			fmt.Sprintf("Fired: %s", firedAt), false, false))
 
 	// Acknowledged info
 	if alert.IsAcked() && alert.AckedBy != "" {
@@ -125,7 +125,7 @@ func (b *MessageBuilder) buildStatusContext(alert *entity.Alert) *slack.ContextB
 		}
 		elements = append(elements,
 			slack.NewTextBlockObject(slack.MarkdownType,
-				fmt.Sprintf("✅ Acked by %s at %s", alert.AckedBy, ackedAt), false, false))
+				fmt.Sprintf("Acked by %s at %s", alert.AckedBy, ackedAt), false, false))
 	}
 
 	// Resolved info
@@ -133,7 +133,14 @@ func (b *MessageBuilder) buildStatusContext(alert *entity.Alert) *slack.ContextB
 		resolvedAt := alert.ResolvedAt.Format("15:04 MST")
 		elements = append(elements,
 			slack.NewTextBlockObject(slack.MarkdownType,
-				fmt.Sprintf("🟢 Resolved: %s", resolvedAt), false, false))
+				fmt.Sprintf("Resolved: %s", resolvedAt), false, false))
+	}
+
+	// Fingerprint (for tracking and debugging)
+	if alert.Fingerprint != "" {
+		elements = append(elements,
+			slack.NewTextBlockObject(slack.MarkdownType,
+				fmt.Sprintf("Fingerprint: %s", alert.Fingerprint), false, false))
 	}
 
 	return slack.NewContextBlock("", elements...)
