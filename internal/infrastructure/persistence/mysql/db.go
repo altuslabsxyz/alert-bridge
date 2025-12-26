@@ -8,6 +8,7 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 
+	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/repository"
 	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/config"
 )
 
@@ -213,4 +214,54 @@ func dbStatsFromSQL(s sql.DBStats) DBStats {
 		WaitCount:          s.WaitCount,
 		WaitDuration:       s.WaitDuration,
 	}
+}
+
+// mysqlTx wraps sql.Tx to implement repository.Transaction
+type mysqlTx struct {
+	*sql.Tx
+}
+
+func (tx *mysqlTx) Commit() error {
+	return tx.Tx.Commit()
+}
+
+func (tx *mysqlTx) Rollback() error {
+	return tx.Tx.Rollback()
+}
+
+// BeginTx starts a new transaction on the primary database.
+func (db *DB) BeginTx(ctx context.Context) (repository.Transaction, error) {
+	tx, err := db.primary.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	return &mysqlTx{Tx: tx}, nil
+}
+
+// WithTransaction executes a function within a transaction.
+// If the function returns an error, the transaction is rolled back.
+// Otherwise, the transaction is committed.
+func (db *DB) WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
+	tx, err := db.BeginTx(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Add transaction to context
+	ctx = repository.NewContextWithTx(ctx, tx)
+
+	// Execute function
+	if err := fn(ctx); err != nil {
+		if rbErr := tx.Rollback(); rbErr != nil {
+			return fmt.Errorf("rollback after error %w: %v", err, rbErr)
+		}
+		return err
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+
+	return nil
 }

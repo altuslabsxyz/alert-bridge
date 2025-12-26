@@ -26,6 +26,7 @@ func (app *Application) initializeUseCases() error {
 		SyncAck: ack.NewSyncAckUseCase(
 			app.alertRepo,
 			app.ackEventRepo,
+			app.txManager,
 			app.clients.Syncers,
 			logger,
 		),

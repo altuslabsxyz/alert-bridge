@@ -55,6 +55,7 @@ type Logger = logger.Logger
 type SyncAckUseCase struct {
 	alertRepo    repository.AlertRepository
 	ackEventRepo repository.AckEventRepository
+	txManager    repository.TransactionManager
 	syncers      []AckSyncer
 	logger       Logger
 }
@@ -63,12 +64,14 @@ type SyncAckUseCase struct {
 func NewSyncAckUseCase(
 	alertRepo repository.AlertRepository,
 	ackEventRepo repository.AckEventRepository,
+	txManager repository.TransactionManager,
 	syncers []AckSyncer,
 	logger Logger,
 ) *SyncAckUseCase {
 	return &SyncAckUseCase{
 		alertRepo:    alertRepo,
 		ackEventRepo: ackEventRepo,
+		txManager:    txManager,
 		syncers:      syncers,
 		logger:       logger,
 	}
@@ -78,7 +81,7 @@ func NewSyncAckUseCase(
 func (uc *SyncAckUseCase) Execute(ctx context.Context, input SyncAckInput) (*SyncAckOutput, error) {
 	output := &SyncAckOutput{}
 
-	// 1. Load the alert
+	// 1. Load the alert (outside transaction - read-only)
 	alert, err := uc.alertRepo.FindByID(ctx, input.AlertID)
 	if err != nil {
 		return nil, fmt.Errorf("finding alert: %w", err)
@@ -102,34 +105,42 @@ func (uc *SyncAckUseCase) Execute(ctx context.Context, input SyncAckInput) (*Syn
 		ackEvent.WithDuration(*input.Duration)
 	}
 
-	// 3. Save ack event (for audit trail)
-	if err := uc.ackEventRepo.Save(ctx, ackEvent); err != nil {
-		return nil, fmt.Errorf("saving ack event: %w", err)
+	// 3-5. Save ack event and update alert in a transaction
+	err = uc.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		// 3. Save ack event (for audit trail)
+		if err := uc.ackEventRepo.Save(txCtx, ackEvent); err != nil {
+			return fmt.Errorf("saving ack event: %w", err)
+		}
+
+		// 4. Update alert state
+		err := alert.Acknowledge(input.UserEmail, time.Now().UTC())
+		if err != nil {
+			// If already acknowledged, continue to sync (idempotent behavior)
+			if !errors.Is(err, entity.ErrAlertAlreadyAcked) && !errors.Is(err, entity.ErrAlertAlreadyResolved) {
+				return fmt.Errorf("acknowledging alert: %w", err)
+			}
+			uc.logger.Debug("alert already acked/resolved, continuing sync",
+				"alertID", alert.ID,
+				"state", alert.State,
+			)
+		}
+
+		// 5. Persist alert state change
+		if err := uc.alertRepo.Update(txCtx, alert); err != nil {
+			return fmt.Errorf("updating alert: %w", err)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
 	}
 
 	output.AckEvent = ackEvent
-
-	// 4. Update alert state
-	err = alert.Acknowledge(input.UserEmail, time.Now().UTC())
-	if err != nil {
-		// If already acknowledged, continue to sync (idempotent behavior)
-		if !errors.Is(err, entity.ErrAlertAlreadyAcked) && !errors.Is(err, entity.ErrAlertAlreadyResolved) {
-			return nil, fmt.Errorf("acknowledging alert: %w", err)
-		}
-		uc.logger.Debug("alert already acked/resolved, continuing sync",
-			"alertID", alert.ID,
-			"state", alert.State,
-		)
-	}
-
-	// 5. Persist alert state change
-	if err := uc.alertRepo.Update(ctx, alert); err != nil {
-		return nil, fmt.Errorf("updating alert: %w", err)
-	}
-
 	output.Alert = alert
 
-	// 6. Sync to other systems (excluding source)
+	// 6. Sync to other systems (outside transaction - external API calls)
 	uc.syncToExternalSystems(ctx, alert, ackEvent, input.Source, output)
 
 	uc.logger.Info("ack synced",

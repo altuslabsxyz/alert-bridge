@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/repository"
 	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/persistence/memory"
 	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/persistence/mysql"
 	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/persistence/sqlite"
@@ -22,6 +23,7 @@ func (app *Application) initializeStorage() error {
 		app.alertRepo = repos.Alert
 		app.ackEventRepo = repos.AckEvent
 		app.silenceRepo = repos.Silence
+		app.txManager = db // MySQL DB implements TransactionManager
 		closer = db
 
 		app.logger.Get().Info("MySQL storage initialized",
@@ -44,6 +46,7 @@ func (app *Application) initializeStorage() error {
 		app.alertRepo = repos.Alert
 		app.ackEventRepo = repos.AckEvent
 		app.silenceRepo = repos.Silence
+		app.txManager = db // SQLite DB implements TransactionManager
 		closer = db
 
 		app.logger.Get().Info("SQLite storage initialized",
@@ -54,6 +57,7 @@ func (app *Application) initializeStorage() error {
 		app.alertRepo = memory.NewAlertRepository()
 		app.ackEventRepo = memory.NewAckEventRepository()
 		app.silenceRepo = memory.NewSilenceRepository()
+		app.txManager = &noOpTransactionManager{} // No-op for in-memory
 
 		app.logger.Get().Info("in-memory storage initialized")
 
@@ -62,5 +66,28 @@ func (app *Application) initializeStorage() error {
 	}
 
 	app.dbCloser = closer
+	return nil
+}
+
+// noOpTransactionManager is a no-op implementation for in-memory storage.
+type noOpTransactionManager struct{}
+
+func (n *noOpTransactionManager) BeginTx(ctx context.Context) (repository.Transaction, error) {
+	return &noOpTransaction{}, nil
+}
+
+func (n *noOpTransactionManager) WithTransaction(ctx context.Context, fn func(context.Context) error) error {
+	// For in-memory storage, just execute the function without transaction
+	return fn(ctx)
+}
+
+// noOpTransaction is a no-op transaction.
+type noOpTransaction struct{}
+
+func (n *noOpTransaction) Commit() error {
+	return nil
+}
+
+func (n *noOpTransaction) Rollback() error {
 	return nil
 }
