@@ -55,7 +55,7 @@ dockers_v2:
       - alert-bridge
     dockerfile: Dockerfile.goreleaser
     images:
-      - "ghcr.io/qj0r9j0vc2/alert-bridge"
+      - "ghcr.io/altuslabsxyz/alert-bridge"
     tags:
       - "{{ .Tag }}"
       - "latest"
@@ -101,7 +101,7 @@ changelog:
 
 release:
   github:
-    owner: qj0r9j0vc2
+    owner: altuslabsxyz
     name: alert-bridge
   name_template: "{{ .Tag }}"
   draft: false
@@ -117,7 +117,7 @@ release:
 
     #### Docker
     ```bash
-    docker pull ghcr.io/qj0r9j0vc2/alert-bridge:{{ .Tag }}
+    docker pull ghcr.io/altuslabsxyz/alert-bridge:{{ .Tag }}
     ```
 
     #### Verify Checksum
@@ -126,4 +126,4 @@ release:
     ```
   footer: |
     ---
-    **Full Changelog**: https://github.com/qj0r9j0vc2/alert-bridge/compare/{{ .PreviousTag }}...{{ .Tag }}
+    **Full Changelog**: https://github.com/altuslabsxyz/alert-bridge/compare/{{ .PreviousTag }}...{{ .Tag }}
