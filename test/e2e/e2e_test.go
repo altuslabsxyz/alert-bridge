@@ -1,253 +1,362 @@
+// Package e2e provides in-process end-to-end tests using mock notifiers.
+// These tests run without Docker and are much faster than Docker-based e2e tests.
 package e2e
 
 import (
-	"os"
+	"context"
+	"net/http"
 	"testing"
 	"time"
 
-	"github.com/qj0r9j0vc2/alert-bridge/test/e2e/helpers"
+	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/entity"
+	"github.com/qj0r9j0vc2/alert-bridge/test/e2e/harness"
 )
 
-// TestMain sets up and tears down the E2E test environment
-func TestMain(m *testing.M) {
-	// Note: Environment setup (worktree, Docker) is handled by scripts/e2e-setup.sh
-	// This TestMain is for any Go-specific initialization
-
-	// Initialize test reporter
-	helpers.InitReporter("test-report.json")
-
-	// Run tests
-	exitCode := m.Run()
-
-	// Save and print report
-	if err := helpers.SaveReportIfInitialized(); err != nil {
-		println("Failed to save test report:", err.Error())
-	}
-	helpers.PrintSummaryIfInitialized()
-
-	os.Exit(exitCode)
-}
-
-// TestE2ESetup verifies the E2E environment is properly set up
-func TestE2ESetup(t *testing.T) {
-	helpers.LogTestPhase(t, "setup_environment")
-
-	// Wait for all services to become healthy
-	helpers.WaitForAllServices(t)
-
-	// Reset mock services to clean state
-	helpers.ResetMockServices(t)
-
-	// Print service URLs for debugging
-	helpers.PrintServiceURLs(t)
-
-	t.Log("E2E environment is ready")
-}
-
-// TestAlertCreationSlack tests alert delivery to Slack
+// TestAlertCreationSlack tests that alerts are delivered to Slack notifier
 func TestAlertCreationSlack(t *testing.T) {
-	startTime := time.Now()
-	if reporter := helpers.GetReporter(); reporter != nil {
-		reporter.StartTest(t.Name())
-		defer func() {
-			reporter.RecordPhase("total_execution", startTime)
-			reporter.EndTest(t)
-		}()
+	h := harness.NewTestHarness(t)
+
+	// Create and send a test alert
+	alert := harness.CreateTestAlert("high_cpu_critical", nil)
+	resp, err := h.SendAlert([]harness.AlertmanagerAlert{alert})
+	if err != nil {
+		t.Fatalf("Failed to send alert: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", resp.StatusCode)
 	}
 
-	helpers.LogTestPhase(t, "test_start")
-
-	// Setup: Wait for services and reset state
-	phaseStart := time.Now()
-	helpers.WaitForAllServices(t)
-	helpers.ResetMockServices(t)
-	if reporter := helpers.GetReporter(); reporter != nil {
-		reporter.RecordPhase("setup_environment", phaseStart)
+	// Wait for notification to be processed
+	if !h.WaitForSlackNotification(alert.Fingerprint, 5*time.Second) {
+		t.Fatal("Slack notification was not received within timeout")
 	}
 
-	// Create test alert
-	helpers.LogTestPhase(t, "create_alert")
-	alert := helpers.CreateTestAlert("high_cpu_critical", nil)
+	// Verify the notification was recorded
+	notifications := h.SlackNotifier.GetNotificationsByFingerprint(alert.Fingerprint)
+	if len(notifications) == 0 {
+		t.Fatal("Expected at least one Slack notification")
+	}
 
-	// Send alert directly to Alert-Bridge webhook
-	helpers.LogTestPhase(t, "send_alert")
-	helpers.SendAlertToAlertBridge(t, []helpers.Alert{alert})
+	notification := notifications[0]
 
-	// Wait for alert delivery
-	helpers.LogTestPhase(t, "wait_for_delivery")
-	time.Sleep(3 * time.Second) // Allow time for processing
+	// Verify notification properties
+	if notification.Name != "HighCPU" {
+		t.Errorf("Expected alert name 'HighCPU', got '%s'", notification.Name)
+	}
 
-	// Verify Slack message was received
-	helpers.LogTestPhase(t, "verify_slack_delivery")
-	msg := helpers.AssertSlackMessageReceived(t, alert.Fingerprint)
+	if notification.Severity != entity.SeverityCritical {
+		t.Errorf("Expected severity critical, got %v", notification.Severity)
+	}
 
-	// Verify message contains alert information
-	helpers.LogTestPhase(t, "verify_message_content")
-	helpers.AssertSlackMessageContains(t, msg, "HighCPU")
-	helpers.AssertSlackMessageContains(t, msg, "server-01")
+	if notification.State != entity.StateActive {
+		t.Errorf("Expected state firing, got %v", notification.State)
+	}
 
-	helpers.LogTestPhase(t, "test_complete")
-	t.Log("Alert successfully delivered to Slack")
+	t.Logf("Alert successfully delivered to Slack mock: messageID=%s", notification.MessageID)
 }
 
-// TestAlertCreationPagerDuty tests alert delivery to PagerDuty
+// TestAlertCreationPagerDuty tests that alerts are delivered to PagerDuty notifier
 func TestAlertCreationPagerDuty(t *testing.T) {
-	helpers.LogTestPhase(t, "test_start")
+	h := harness.NewTestHarness(t)
 
-	// Setup: Wait for services and reset state
-	helpers.WaitForAllServices(t)
-	helpers.ResetMockServices(t)
+	// Create and send a test alert
+	alert := harness.CreateTestAlert("service_down_critical", nil)
+	resp, err := h.SendAlert([]harness.AlertmanagerAlert{alert})
+	if err != nil {
+		t.Fatalf("Failed to send alert: %v", err)
+	}
+	defer resp.Body.Close()
 
-	// Create test alert
-	helpers.LogTestPhase(t, "create_alert")
-	alert := helpers.CreateTestAlert("service_down_critical", nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", resp.StatusCode)
+	}
 
-	// Send alert directly to Alert-Bridge webhook
-	helpers.LogTestPhase(t, "send_alert")
-	helpers.SendAlertToAlertBridge(t, []helpers.Alert{alert})
+	// Wait for notification
+	if !h.WaitForPagerDutyNotification(alert.Fingerprint, 5*time.Second) {
+		t.Fatal("PagerDuty notification was not received within timeout")
+	}
 
-	// Wait for alert delivery
-	helpers.LogTestPhase(t, "wait_for_delivery")
-	time.Sleep(3 * time.Second)
+	// Verify the notification
+	notifications := h.PagerDutyNotifier.GetNotificationsByFingerprint(alert.Fingerprint)
+	if len(notifications) == 0 {
+		t.Fatal("Expected at least one PagerDuty notification")
+	}
 
-	// Verify PagerDuty event was received
-	helpers.LogTestPhase(t, "verify_pagerduty_delivery")
-	event := helpers.AssertPagerDutyEventReceived(t, alert.Fingerprint, "trigger")
+	notification := notifications[0]
 
-	// Verify event properties
-	helpers.LogTestPhase(t, "verify_event_properties")
-	helpers.AssertPagerDutyEventAction(t, event, "trigger")
-	helpers.AssertPagerDutyEventSeverity(t, event, "critical")
+	if notification.Severity != entity.SeverityCritical {
+		t.Errorf("Expected severity critical, got %v", notification.Severity)
+	}
 
-	helpers.LogTestPhase(t, "test_complete")
-	t.Log("Alert successfully delivered to PagerDuty")
+	t.Logf("Alert successfully delivered to PagerDuty mock: messageID=%s", notification.MessageID)
 }
 
 // TestAlertDeduplication tests that duplicate alerts are not sent multiple times
 func TestAlertDeduplication(t *testing.T) {
-	helpers.LogTestPhase(t, "test_start")
+	h := harness.NewTestHarness(t)
 
-	// Setup
-	helpers.WaitForAllServices(t)
-	helpers.ResetMockServices(t)
+	// Create and send first alert
+	alert := harness.CreateTestAlert("duplicate_test_alert", nil)
+	resp, err := h.SendAlert([]harness.AlertmanagerAlert{alert})
+	if err != nil {
+		t.Fatalf("Failed to send first alert: %v", err)
+	}
+	resp.Body.Close()
 
-	// Create test alert
-	helpers.LogTestPhase(t, "create_first_alert")
-	alert := helpers.CreateTestAlert("duplicate_test_alert", nil)
+	// Wait for first notification
+	if !h.WaitForSlackNotification(alert.Fingerprint, 5*time.Second) {
+		t.Fatal("First notification not received")
+	}
 
-	// Send first alert
-	helpers.LogTestPhase(t, "send_first_alert")
-	helpers.SendAlertToAlertBridge(t, []helpers.Alert{alert})
-	time.Sleep(2 * time.Second)
+	initialSlackCount := h.SlackNotifier.GetNotificationCount()
+	initialPDCount := h.PagerDutyNotifier.GetNotificationCount()
+
+	t.Logf("After first alert: Slack=%d, PagerDuty=%d", initialSlackCount, initialPDCount)
 
 	// Send duplicate alert (same fingerprint)
-	helpers.LogTestPhase(t, "send_duplicate_alert")
-	helpers.SendAlertToAlertBridge(t, []helpers.Alert{alert})
-	time.Sleep(2 * time.Second)
+	resp, err = h.SendAlert([]harness.AlertmanagerAlert{alert})
+	if err != nil {
+		t.Fatalf("Failed to send duplicate alert: %v", err)
+	}
+	resp.Body.Close()
 
-	// Verify only one Slack message was sent
-	helpers.LogTestPhase(t, "verify_deduplication")
-	helpers.AssertSlackMessageCount(t, 1, alert.Fingerprint)
+	// Wait a bit to ensure processing
+	time.Sleep(100 * time.Millisecond)
 
-	helpers.LogTestPhase(t, "test_complete")
+	// Verify no new notifications were sent
+	finalSlackCount := h.SlackNotifier.GetNotificationCount()
+	finalPDCount := h.PagerDutyNotifier.GetNotificationCount()
+
+	t.Logf("After duplicate: Slack=%d, PagerDuty=%d", finalSlackCount, finalPDCount)
+
+	if finalSlackCount != initialSlackCount {
+		t.Errorf("Expected %d Slack notifications after dedup, got %d", initialSlackCount, finalSlackCount)
+	}
+
+	if finalPDCount != initialPDCount {
+		t.Errorf("Expected %d PagerDuty notifications after dedup, got %d", initialPDCount, finalPDCount)
+	}
+
 	t.Log("Alert deduplication working correctly")
 }
 
 // TestAlertResolution tests alert resolution notifications
 func TestAlertResolution(t *testing.T) {
-	helpers.LogTestPhase(t, "test_start")
+	h := harness.NewTestHarness(t)
 
-	// Setup
-	helpers.WaitForAllServices(t)
-	helpers.ResetMockServices(t)
+	// Send firing alert
+	alert := harness.CreateTestAlert("memory_pressure_warning", map[string]string{
+		"test": "resolution",
+	})
+	resp, err := h.SendAlert([]harness.AlertmanagerAlert{alert})
+	if err != nil {
+		t.Fatalf("Failed to send firing alert: %v", err)
+	}
+	resp.Body.Close()
 
-	// Create and send firing alert (with unique label to avoid collision with other tests)
-	helpers.LogTestPhase(t, "send_firing_alert")
-	alert := helpers.CreateTestAlert("memory_pressure_warning", map[string]string{"test": "resolution"})
-	helpers.SendAlertToAlertBridge(t, []helpers.Alert{alert})
-	time.Sleep(2 * time.Second)
+	// Wait for initial notification
+	if !h.WaitForSlackNotification(alert.Fingerprint, 5*time.Second) {
+		t.Fatal("Initial notification not received")
+	}
 
-	// Verify initial PagerDuty trigger event
-	helpers.LogTestPhase(t, "verify_trigger_event")
-	helpers.AssertPagerDutyEventReceived(t, alert.Fingerprint, "trigger")
+	// Verify initial state is firing
+	notifications := h.SlackNotifier.GetNotificationsByFingerprint(alert.Fingerprint)
+	if len(notifications) == 0 {
+		t.Fatal("Expected initial notification")
+	}
+
+	if notifications[0].State != entity.StateActive {
+		t.Errorf("Expected initial state firing, got %v", notifications[0].State)
+	}
 
 	// Send resolved alert
-	helpers.LogTestPhase(t, "send_resolved_alert")
-	resolvedAlert := helpers.ResolveAlert(t, alert)
-	helpers.SendAlertToAlertBridge(t, []helpers.Alert{resolvedAlert})
-	time.Sleep(3 * time.Second)
+	resolvedAlert := harness.CreateResolvedAlert(alert)
+	resp, err = h.SendAlert([]harness.AlertmanagerAlert{resolvedAlert})
+	if err != nil {
+		t.Fatalf("Failed to send resolved alert: %v", err)
+	}
+	resp.Body.Close()
 
-	// Verify PagerDuty resolve event was sent
-	helpers.LogTestPhase(t, "verify_resolve_event")
-	resolveEvent := helpers.AssertPagerDutyEventReceived(t, alert.Fingerprint, "resolve")
-	helpers.AssertPagerDutyEventAction(t, resolveEvent, "resolve")
+	// Wait for update notification
+	time.Sleep(200 * time.Millisecond)
 
-	// Verify Slack updated the message (not created a new one)
-	helpers.LogTestPhase(t, "verify_slack_resolution")
-	helpers.AssertSlackMessageCount(t, 1, alert.Fingerprint) // Same message, updated
+	// Verify we got an update notification (not a new one)
+	notifications = h.SlackNotifier.GetNotificationsByFingerprint(alert.Fingerprint)
+	if len(notifications) < 2 {
+		t.Fatalf("Expected at least 2 notifications (initial + update), got %d", len(notifications))
+	}
 
-	helpers.LogTestPhase(t, "test_complete")
+	// The last notification should be an update with resolved state
+	lastNotification := notifications[len(notifications)-1]
+	if !lastNotification.IsUpdate {
+		t.Error("Expected last notification to be an update")
+	}
+
+	if lastNotification.State != entity.StateResolved {
+		t.Errorf("Expected resolved state, got %v", lastNotification.State)
+	}
+
 	t.Log("Alert resolution notifications working correctly")
 }
 
-// TestMultipleAlertsGrouping tests that multiple alerts are properly grouped
-func TestMultipleAlertsGrouping(t *testing.T) {
-	helpers.LogTestPhase(t, "test_start")
+// TestMultipleAlertsInBatch tests processing multiple alerts in a single webhook
+func TestMultipleAlertsInBatch(t *testing.T) {
+	h := harness.NewTestHarness(t)
 
-	// Setup
-	helpers.WaitForAllServices(t)
-	helpers.ResetMockServices(t)
+	// Create multiple alerts
+	alert1 := harness.CreateTestAlert("high_cpu_critical", map[string]string{"test": "batch_1"})
+	alert2 := harness.CreateTestAlert("disk_space_critical", map[string]string{"test": "batch_2"})
+	alert3 := harness.CreateTestAlert("backup_failed_critical", map[string]string{"test": "batch_3"})
 
-	// Send multiple alerts of same severity (with unique labels to avoid collision with other tests)
-	helpers.LogTestPhase(t, "send_multiple_alerts")
-	alert1 := helpers.CreateTestAlert("high_cpu_critical", map[string]string{"test": "grouping_1"})
-	alert2 := helpers.CreateTestAlert("disk_space_critical", map[string]string{"test": "grouping_2"})
-	alert3 := helpers.CreateTestAlert("backup_failed_critical", map[string]string{"test": "grouping_3"})
+	// Send all alerts in one batch
+	resp, err := h.SendAlert([]harness.AlertmanagerAlert{alert1, alert2, alert3})
+	if err != nil {
+		t.Fatalf("Failed to send alerts: %v", err)
+	}
+	resp.Body.Close()
 
-	helpers.SendAlertToAlertBridge(t, []helpers.Alert{alert1, alert2, alert3})
+	// Wait for all notifications (6 total: 3 Slack + 3 PagerDuty)
+	if !h.WaitForNotifications(6, 10*time.Second) {
+		t.Fatalf("Not all notifications received. Slack=%d, PagerDuty=%d",
+			h.SlackNotifier.GetNotificationCount(),
+			h.PagerDutyNotifier.GetNotificationCount())
+	}
 
-	// Wait for processing
-	time.Sleep(5 * time.Second)
+	// Verify each alert was delivered to both notifiers
+	for _, fingerprint := range []string{alert1.Fingerprint, alert2.Fingerprint, alert3.Fingerprint} {
+		if !h.SlackNotifier.HasNotificationWithFingerprint(fingerprint) {
+			t.Errorf("Slack notification missing for fingerprint %s", fingerprint)
+		}
+		if !h.PagerDutyNotifier.HasNotificationWithFingerprint(fingerprint) {
+			t.Errorf("PagerDuty notification missing for fingerprint %s", fingerprint)
+		}
+	}
 
-	// Verify all alerts were delivered
-	helpers.LogTestPhase(t, "verify_all_delivered")
-	helpers.AssertSlackMessageReceived(t, alert1.Fingerprint)
-	helpers.AssertSlackMessageReceived(t, alert2.Fingerprint)
-	helpers.AssertSlackMessageReceived(t, alert3.Fingerprint)
-
-	helpers.LogTestPhase(t, "test_complete")
-	t.Log("Multiple alerts handled correctly")
+	t.Logf("Multiple alerts handled correctly: Slack=%d, PagerDuty=%d",
+		h.SlackNotifier.GetNotificationCount(),
+		h.PagerDutyNotifier.GetNotificationCount())
 }
 
 // TestDifferentSeverityLevels tests alerts with different severity levels
 func TestDifferentSeverityLevels(t *testing.T) {
-	helpers.LogTestPhase(t, "test_start")
+	h := harness.NewTestHarness(t)
 
-	// Setup
-	helpers.WaitForAllServices(t)
-	helpers.ResetMockServices(t)
+	// Send critical alert
+	criticalAlert := harness.CreateTestAlert("high_cpu_critical", map[string]string{"test": "severity_critical"})
+	resp, err := h.SendAlert([]harness.AlertmanagerAlert{criticalAlert})
+	if err != nil {
+		t.Fatalf("Failed to send critical alert: %v", err)
+	}
+	resp.Body.Close()
 
-	// Send critical alert (with unique label to avoid collision with other tests)
-	helpers.LogTestPhase(t, "send_critical_alert")
-	criticalAlert := helpers.CreateTestAlert("high_cpu_critical", map[string]string{"test": "severity_critical"})
-	helpers.SendAlertToAlertBridge(t, []helpers.Alert{criticalAlert})
-	time.Sleep(2 * time.Second)
+	// Wait for critical notification
+	if !h.WaitForPagerDutyNotification(criticalAlert.Fingerprint, 5*time.Second) {
+		t.Fatal("Critical alert notification not received")
+	}
 
-	// Send warning alert (with unique label to avoid collision with other tests)
-	helpers.LogTestPhase(t, "send_warning_alert")
-	warningAlert := helpers.CreateTestAlert("memory_pressure_warning", map[string]string{"test": "severity_warning"})
-	helpers.SendAlertToAlertBridge(t, []helpers.Alert{warningAlert})
-	time.Sleep(2 * time.Second)
+	// Send warning alert
+	warningAlert := harness.CreateTestAlert("memory_pressure_warning", map[string]string{"test": "severity_warning"})
+	resp, err = h.SendAlert([]harness.AlertmanagerAlert{warningAlert})
+	if err != nil {
+		t.Fatalf("Failed to send warning alert: %v", err)
+	}
+	resp.Body.Close()
 
-	// Verify both were delivered with correct severity
-	helpers.LogTestPhase(t, "verify_critical_severity")
-	criticalEvent := helpers.AssertPagerDutyEventReceived(t, criticalAlert.Fingerprint, "trigger")
-	helpers.AssertPagerDutyEventSeverity(t, criticalEvent, "critical")
+	// Wait for warning notification
+	if !h.WaitForPagerDutyNotification(warningAlert.Fingerprint, 5*time.Second) {
+		t.Fatal("Warning alert notification not received")
+	}
 
-	helpers.LogTestPhase(t, "verify_warning_severity")
-	warningEvent := helpers.AssertPagerDutyEventReceived(t, warningAlert.Fingerprint, "trigger")
-	helpers.AssertPagerDutyEventSeverity(t, warningEvent, "warning")
+	// Verify critical severity
+	criticalNotifications := h.PagerDutyNotifier.GetNotificationsByFingerprint(criticalAlert.Fingerprint)
+	if len(criticalNotifications) == 0 {
+		t.Fatal("No critical notifications found")
+	}
+	if criticalNotifications[0].Severity != entity.SeverityCritical {
+		t.Errorf("Expected critical severity, got %v", criticalNotifications[0].Severity)
+	}
 
-	helpers.LogTestPhase(t, "test_complete")
+	// Verify warning severity
+	warningNotifications := h.PagerDutyNotifier.GetNotificationsByFingerprint(warningAlert.Fingerprint)
+	if len(warningNotifications) == 0 {
+		t.Fatal("No warning notifications found")
+	}
+	if warningNotifications[0].Severity != entity.SeverityWarning {
+		t.Errorf("Expected warning severity, got %v", warningNotifications[0].Severity)
+	}
+
 	t.Log("Different severity levels handled correctly")
+}
+
+// TestNotifierFailureHandling tests behavior when a notifier fails
+func TestNotifierFailureHandling(t *testing.T) {
+	h := harness.NewTestHarness(t)
+
+	// Configure Slack to fail on next call
+	h.SlackNotifier.SetFailNext(errMockNotifierFailure)
+
+	// Send alert
+	alert := harness.CreateTestAlert("high_cpu_critical", map[string]string{"test": "failure"})
+	resp, err := h.SendAlert([]harness.AlertmanagerAlert{alert})
+	if err != nil {
+		t.Fatalf("Failed to send alert: %v", err)
+	}
+	resp.Body.Close()
+
+	// Wait for PagerDuty notification (Slack should have failed)
+	if !h.WaitForPagerDutyNotification(alert.Fingerprint, 5*time.Second) {
+		t.Fatal("PagerDuty notification not received despite Slack failure")
+	}
+
+	// Verify Slack didn't receive notification (it failed)
+	slackNotifications := h.SlackNotifier.GetNotificationsByFingerprint(alert.Fingerprint)
+	if len(slackNotifications) != 0 {
+		t.Errorf("Expected no Slack notifications due to failure, got %d", len(slackNotifications))
+	}
+
+	// Verify PagerDuty did receive notification
+	pdNotifications := h.PagerDutyNotifier.GetNotificationsByFingerprint(alert.Fingerprint)
+	if len(pdNotifications) == 0 {
+		t.Error("Expected PagerDuty notification despite Slack failure")
+	}
+
+	t.Log("Notifier failure handled correctly - other notifiers still received alerts")
+}
+
+// TestHealthEndpoint tests the health endpoint
+func TestHealthEndpoint(t *testing.T) {
+	h := harness.NewTestHarness(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, h.ServerURL()+"/health", nil)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("Health check failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	t.Log("Health endpoint working correctly")
+}
+
+// errMockNotifierFailure is a test error for simulating notifier failures
+var errMockNotifierFailure = &mockNotifierError{message: "simulated notifier failure"}
+
+type mockNotifierError struct {
+	message string
+}
+
+func (e *mockNotifierError) Error() string {
+	return e.message
 }
