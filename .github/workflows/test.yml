@@ -71,7 +71,7 @@ jobs:
             echo "Changed packages: $UNIQUE_PKGS"
 
             # Find all packages that depend on changed packages
-            ALL_PKGS=$(go list ./... | grep -v /test/e2e)
+            ALL_PKGS=$(go list ./... | grep -v '/test/e2e')
             AFFECTED_PKGS="$UNIQUE_PKGS"
 
             for pkg in $UNIQUE_PKGS; do
@@ -101,7 +101,7 @@ jobs:
         if: github.event_name == 'push' || (github.event_name == 'pull_request' && steps.changed.outputs.packages == '')
         run: |
           echo "Running full test suite"
-          go test -v -race -coverprofile=coverage.out -covermode=atomic $(go list ./... | grep -v /test/e2e)
+          go test -v -race -coverprofile=coverage.out -covermode=atomic $(go list ./... | grep -v '/test/e2e')
 
       - name: Check coverage threshold
         if: always() && hashFiles('coverage.out') != ''
