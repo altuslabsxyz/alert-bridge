@@ -3,10 +3,10 @@ package app
 import (
 	"fmt"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/adapter/handler"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/server"
-	pdUseCase "github.com/qj0r9j0vc2/alert-bridge/internal/usecase/pagerduty"
-	slackUseCase "github.com/qj0r9j0vc2/alert-bridge/internal/usecase/slack"
+	"github.com/altuslabsxyz/alert-bridge/internal/adapter/handler"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/server"
+	pdUseCase "github.com/altuslabsxyz/alert-bridge/internal/usecase/pagerduty"
+	slackUseCase "github.com/altuslabsxyz/alert-bridge/internal/usecase/slack"
 )
 
 func (app *Application) initializeHandlers() error {

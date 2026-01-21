@@ -11,9 +11,9 @@ import (
 
 	"github.com/slack-go/slack"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/adapter/dto"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/adapter/presenter"
-	slackUseCase "github.com/qj0r9j0vc2/alert-bridge/internal/usecase/slack"
+	"github.com/altuslabsxyz/alert-bridge/internal/adapter/dto"
+	"github.com/altuslabsxyz/alert-bridge/internal/adapter/presenter"
+	slackUseCase "github.com/altuslabsxyz/alert-bridge/internal/usecase/slack"
 )
 
 // SlackCommandInfo represents metadata for a slash command.

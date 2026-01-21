@@ -7,10 +7,10 @@ import (
 
 	slackLib "github.com/slack-go/slack"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/adapter/dto"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/entity"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/repository"
-	slackInfra "github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/slack"
+	"github.com/altuslabsxyz/alert-bridge/internal/adapter/dto"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/entity"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/repository"
+	slackInfra "github.com/altuslabsxyz/alert-bridge/internal/infrastructure/slack"
 )
 
 // SilenceResult represents the result of a silence operation.

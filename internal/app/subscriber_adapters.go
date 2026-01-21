@@ -3,10 +3,10 @@ package app
 import (
 	"context"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/entity"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/pagerduty"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/slack"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/usecase/alert"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/entity"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/pagerduty"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/slack"
+	"github.com/altuslabsxyz/alert-bridge/internal/usecase/alert"
 )
 
 // SlackSubscriberNotifierAdapter adapts the Slack client to the SlackSubscriberNotifier interface.

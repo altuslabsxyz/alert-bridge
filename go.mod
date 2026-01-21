@@ -1,4 +1,4 @@
-module github.com/qj0r9j0vc2/alert-bridge
+module github.com/altuslabsxyz/alert-bridge
 
 go 1.24.2
 

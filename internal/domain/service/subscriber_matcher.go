@@ -3,8 +3,8 @@ package service
 import (
 	"sort"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/entity"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/config"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/entity"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/config"
 )
 
 // MatchedSubscriber represents a subscriber that matched an alert along with

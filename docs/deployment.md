@@ -19,15 +19,15 @@ git push origin v1.0.0
 
 ### Downloading Binaries
 
-Download pre-built binaries from [GitHub Releases](https://github.com/qj0r9j0vc2/alert-bridge/releases):
+Download pre-built binaries from [GitHub Releases](https://github.com/altuslabsxyz/alert-bridge/releases):
 
 ```bash
 # Linux (amd64)
-curl -LO https://github.com/qj0r9j0vc2/alert-bridge/releases/latest/download/alert-bridge_linux_amd64.tar.gz
+curl -LO https://github.com/altuslabsxyz/alert-bridge/releases/latest/download/alert-bridge_linux_amd64.tar.gz
 tar xzf alert-bridge_linux_amd64.tar.gz
 
 # macOS (Apple Silicon)
-curl -LO https://github.com/qj0r9j0vc2/alert-bridge/releases/latest/download/alert-bridge_darwin_arm64.tar.gz
+curl -LO https://github.com/altuslabsxyz/alert-bridge/releases/latest/download/alert-bridge_darwin_arm64.tar.gz
 tar xzf alert-bridge_darwin_arm64.tar.gz
 
 # Verify checksum

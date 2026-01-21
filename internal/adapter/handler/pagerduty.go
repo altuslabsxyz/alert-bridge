@@ -5,9 +5,9 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/adapter/dto"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/usecase/alert"
-	pdUseCase "github.com/qj0r9j0vc2/alert-bridge/internal/usecase/pagerduty"
+	"github.com/altuslabsxyz/alert-bridge/internal/adapter/dto"
+	"github.com/altuslabsxyz/alert-bridge/internal/usecase/alert"
+	pdUseCase "github.com/altuslabsxyz/alert-bridge/internal/usecase/pagerduty"
 )
 
 // PagerDutyWebhookHandler handles PagerDuty V3 webhook events.

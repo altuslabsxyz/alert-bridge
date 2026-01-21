@@ -3,8 +3,9 @@ package app
 import (
 	"fmt"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/config"
 	"github.com/spf13/viper"
+
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/config"
 )
 
 func (app *Application) loadConfig(configPath string) error {

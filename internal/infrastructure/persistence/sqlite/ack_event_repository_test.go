@@ -5,9 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/entity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/entity"
 )
 
 func setupAckEventTest(t *testing.T) (*DB, *AlertRepository, *AckEventRepository) {

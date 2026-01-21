@@ -1,7 +1,7 @@
 package app
 
 import (
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/observability"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/observability"
 )
 
 // setupTelemetry initializes OpenTelemetry tracing and metrics.

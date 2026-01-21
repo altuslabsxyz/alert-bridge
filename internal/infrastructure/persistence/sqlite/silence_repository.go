@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/entity"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/entity"
 )
 
 // SilenceRepository provides SQLite implementation of repository.SilenceRepository.

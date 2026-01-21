@@ -13,8 +13,8 @@ import (
 
 	"github.com/PagerDuty/go-pagerduty"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/entity"
-	domainerrors "github.com/qj0r9j0vc2/alert-bridge/internal/domain/errors"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/entity"
+	domainerrors "github.com/altuslabsxyz/alert-bridge/internal/domain/errors"
 )
 
 // SubscriberNotification represents a notification to be sent for a specific subscriber.

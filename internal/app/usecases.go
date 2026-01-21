@@ -3,9 +3,9 @@ package app
 import (
 	"log/slog"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/service"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/usecase/ack"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/usecase/alert"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/service"
+	"github.com/altuslabsxyz/alert-bridge/internal/usecase/ack"
+	"github.com/altuslabsxyz/alert-bridge/internal/usecase/alert"
 )
 
 // UseCases holds all business logic use cases

@@ -10,8 +10,8 @@ import (
 
 	"github.com/slack-go/slack"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/entity"
-	domainerrors "github.com/qj0r9j0vc2/alert-bridge/internal/domain/errors"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/entity"
+	domainerrors "github.com/altuslabsxyz/alert-bridge/internal/domain/errors"
 )
 
 // Client wraps the Slack API client with domain-specific operations.
