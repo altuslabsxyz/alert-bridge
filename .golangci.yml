@@ -1,0 +1,192 @@
+# golangci-lint v2 configuration
+# https://golangci-lint.run/usage/configuration/
+
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly
+
+output:
+  formats:
+    text:
+      path: stdout
+      print-linter-name: true
+      print-issued-lines: true
+  sort-order:
+    - linter
+    - file
+
+linters:
+  default: none
+  enable:
+    # Default linters
+    - errcheck      # Check for unchecked errors
+    - govet         # Reports suspicious constructs
+    - ineffassign   # Detects ineffectual assignments
+    - staticcheck   # Static analysis (includes gosimple and stylecheck)
+    - unused        # Checks for unused code
+
+    # Additional recommended linters
+    - bodyclose     # Check HTTP response body is closed
+    - copyloopvar   # Detects places where loop variables are copied
+    - dupl          # Tool for code clone detection
+    - durationcheck # Check for two durations multiplied together
+    - errname       # Check that sentinel errors are prefixed with Err
+    - errorlint     # Find problems with error wrapping
+    - exhaustive    # Check exhaustiveness of enum switch statements
+    - gocheckcompilerdirectives # Check go compiler directives
+    - goconst       # Find repeated strings that could be constants
+    - gocritic      # Opinionated linter
+    - gocyclo       # Computes cyclomatic complexity
+    - gosec         # Security checks
+    - misspell      # Check for misspelled English words
+    - nakedret      # Find naked returns in functions
+    - nilerr        # Check for nil error return with non-nil error
+    - noctx         # HTTP requests should use context
+    - prealloc      # Find slice declarations that could be preallocated
+    - predeclared   # Find shadowing of predeclared identifiers
+    - revive        # Replacement for golint
+    - rowserrcheck  # Check sql.Rows err is checked
+    - sqlclosecheck # Check sql.Rows/Stmt is closed
+    - tparallel     # Detects inappropriate usage of t.Parallel()
+    - unconvert     # Remove unnecessary type conversions
+    - unparam       # Reports unused function parameters
+    - wastedassign  # Find wasted assignment statements
+    - whitespace    # Check for unnecessary newlines
+
+  settings:
+    dupl:
+      threshold: 150
+
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+      exclude-functions:
+        - (io.Closer).Close
+        - (*os.File).Close
+        - (net/http.ResponseWriter).Write
+
+    exhaustive:
+      default-signifies-exhaustive: true
+
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+        - style
+      disabled-checks:
+        - whyNoLint
+        - hugeParam
+
+    gocyclo:
+      min-complexity: 20
+
+    gosec:
+      excludes:
+        - G104
+        - G304
+
+    misspell:
+      locale: US
+
+    nakedret:
+      max-func-lines: 30
+
+    prealloc:
+      simple: true
+      for-loops: true
+
+    revive:
+      severity: warning
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: exported
+          arguments:
+            - checkPrivateReceivers
+        - name: if-return
+        - name: increment-decrement
+        - name: var-naming
+        - name: var-declaration
+        - name: package-comments
+          disabled: true
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unused-parameter
+          disabled: true
+        - name: unreachable-code
+        - name: redefines-builtin-id
+
+    staticcheck:
+      checks:
+        - all
+        - -ST1000
+        - -ST1003
+
+    unparam:
+      check-exported: false
+
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - std-error-handling
+    rules:
+      # Test files can be more relaxed
+      - path: _test\.go
+        linters:
+          - dupl
+          - errcheck
+          - gosec
+          - goconst
+          - unparam
+          - gocritic
+
+      # E2E tests need special handling
+      - path: test/e2e/
+        linters:
+          - dupl
+          - errcheck
+          - gosec
+          - goconst
+
+      # Allow longer functions in main.go
+      - path: cmd/.*/main\.go
+        linters:
+          - gocyclo
+
+      # DTOs often have similar structures
+      - path: internal/adapter/dto/
+        linters:
+          - dupl
+
+      # Repository implementations often share patterns
+      - path: internal/infrastructure/persistence/
+        linters:
+          - dupl
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/qj0r9j0vc2/alert-bridge
