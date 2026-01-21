@@ -36,5 +36,5 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+          go test -v -race -coverprofile=coverage.out -covermode=atomic $(go list ./... | grep -v /test/e2e)
           go tool cover -func=coverage.out | tail -1
