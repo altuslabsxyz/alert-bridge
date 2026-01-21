@@ -19,6 +19,36 @@ type Config struct {
 	Alerting     AlertingConfig     `yaml:"alerting"`
 	Logging      LoggingConfig      `yaml:"logging"`
 	Alertmanager AlertmanagerConfig `yaml:"alertmanager"`
+	Subscribers  []SubscriberConfig `yaml:"subscribers"`
+}
+
+// SubscriberConfig defines a subscriber who receives alert notifications.
+// Subscribers are matched to alerts based on label filters.
+// The more labels match, the higher priority the subscriber has for PagerDuty escalation.
+type SubscriberConfig struct {
+	// Name is a human-readable identifier for the subscriber (e.g., "jinu", "jeseon").
+	Name string `yaml:"name"`
+
+	// SlackUserID is the Slack user ID (e.g., "U0123456789") for @mentions.
+	// Find this in Slack: click on profile -> More -> Copy member ID.
+	SlackUserID string `yaml:"slack_user_id"`
+
+	// PagerDutyUserID is the PagerDuty user ID for targeted escalation.
+	// Find this in PagerDuty: People -> Users -> click user -> ID in URL.
+	PagerDutyUserID string `yaml:"pagerduty_user_id"`
+
+	// PagerDutyRoutingKey is an optional per-subscriber routing key.
+	// If set, this routing key is used instead of the global one for this subscriber.
+	// This allows alerts to be routed to different PagerDuty services per subscriber.
+	PagerDutyRoutingKey string `yaml:"pagerduty_routing_key,omitempty"`
+
+	// Labels defines the label filters for this subscriber.
+	// An alert matches if ALL specified labels match (AND logic).
+	// Example: {"chain": "axelar", "severity": "critical"}
+	Labels map[string]string `yaml:"labels"`
+
+	// Enabled allows disabling a subscriber without removing the config.
+	Enabled *bool `yaml:"enabled,omitempty"`
 }
 
 // StorageConfig holds persistence storage settings.
@@ -416,4 +446,24 @@ func (c *Config) IsSlackEnabled() bool {
 // IsPagerDutyEnabled returns true if PagerDuty integration is enabled.
 func (c *Config) IsPagerDutyEnabled() bool {
 	return c.PagerDuty.Enabled
+}
+
+// IsEnabled returns true if the subscriber is enabled.
+// Defaults to true if Enabled is not explicitly set.
+func (s *SubscriberConfig) IsEnabled() bool {
+	if s.Enabled == nil {
+		return true
+	}
+	return *s.Enabled
+}
+
+// GetEnabledSubscribers returns all enabled subscribers.
+func (c *Config) GetEnabledSubscribers() []SubscriberConfig {
+	var enabled []SubscriberConfig
+	for _, sub := range c.Subscribers {
+		if sub.IsEnabled() {
+			enabled = append(enabled, sub)
+		}
+	}
+	return enabled
 }

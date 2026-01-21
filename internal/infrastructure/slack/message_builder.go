@@ -64,24 +64,55 @@ func NewMessageBuilder(silenceDurations []time.Duration) *MessageBuilder {
 	}
 }
 
+// BuildUserMentions creates a formatted string of Slack user mentions.
+// Example output: "<@U123> <@U456> <@U789>"
+func BuildUserMentions(userIDs []string) string {
+	if len(userIDs) == 0 {
+		return ""
+	}
+
+	mentions := make([]string, len(userIDs))
+	for i, id := range userIDs {
+		mentions[i] = fmt.Sprintf("<@%s>", id)
+	}
+	return strings.Join(mentions, " ")
+}
+
 // BuildAlertMessage creates a Block Kit message for an alert.
 func (b *MessageBuilder) BuildAlertMessage(alert *entity.Alert) []slack.Block {
-	return b.buildMessage(alert, true, true)
+	return b.buildMessage(alert, true, true, nil)
+}
+
+// BuildAlertMessageWithMentions creates a Block Kit message for an alert
+// with subscriber mentions at the top.
+func (b *MessageBuilder) BuildAlertMessageWithMentions(alert *entity.Alert, slackUserIDs []string) []slack.Block {
+	return b.buildMessage(alert, true, true, slackUserIDs)
 }
 
 // BuildAckedMessage creates a message for an acknowledged alert with silence button still available.
 func (b *MessageBuilder) BuildAckedMessage(alert *entity.Alert) []slack.Block {
-	return b.buildMessage(alert, false, true)
+	return b.buildMessage(alert, false, true, nil)
 }
 
 // BuildResolvedMessage creates a message for a resolved alert (no buttons).
 func (b *MessageBuilder) BuildResolvedMessage(alert *entity.Alert) []slack.Block {
-	return b.buildMessage(alert, false, false)
+	return b.buildMessage(alert, false, false, nil)
 }
 
-// buildMessage creates a clean, bright Block Kit message.
-func (b *MessageBuilder) buildMessage(alert *entity.Alert, showAckButton, showSilenceButton bool) []slack.Block {
+// buildMessage creates a clean, bright Block Kit message with configurable button options.
+// slackUserIDs is optional - if provided, mentions will be added at the top of the message.
+func (b *MessageBuilder) buildMessage(alert *entity.Alert, showAckButton, showSilenceButton bool, slackUserIDs []string) []slack.Block {
 	var blocks []slack.Block
+
+	// Add user mentions section at the top if any subscribers matched
+	if len(slackUserIDs) > 0 {
+		mentions := BuildUserMentions(slackUserIDs)
+		blocks = append(blocks, slack.NewSectionBlock(
+			slack.NewTextBlockObject(slack.MarkdownType,
+				fmt.Sprintf(":bell: *Alert Subscribers:* %s", mentions), false, false),
+			nil, nil,
+		))
+	}
 
 	// Clean header with emoji + name
 	emoji, _, _ := b.getStatusInfo(alert)

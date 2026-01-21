@@ -3,27 +3,53 @@ package app
 import (
 	"log/slog"
 
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/service"
 	"github.com/altuslabsxyz/alert-bridge/internal/usecase/ack"
 	"github.com/altuslabsxyz/alert-bridge/internal/usecase/alert"
 )
 
 // UseCases holds all business logic use cases
 type UseCases struct {
-	ProcessAlert *alert.ProcessAlertUseCase
-	SyncAck      *ack.SyncAckUseCase
+	ProcessAlert      *alert.ProcessAlertUseCase
+	SyncAck           *ack.SyncAckUseCase
+	SubscriberMatcher *service.SubscriberMatcher
 }
 
 func (app *Application) initializeUseCases() error {
 	logger := &slogAdapter{logger: app.logger.Get()}
 
+	processAlertUseCase := alert.NewProcessAlertUseCase(
+		app.alertRepo,
+		app.silenceRepo,
+		app.clients.Notifiers,
+		logger,
+		app.telemetry.Metrics,
+	)
+
+	// Initialize subscriber matcher if subscribers are configured
+	var subscriberMatcher *service.SubscriberMatcher
+	if len(app.config.Subscribers) > 0 {
+		subscriberMatcher = service.NewSubscriberMatcher(app.config.GetEnabledSubscribers())
+		processAlertUseCase.SetSubscriberMatcher(subscriberMatcher)
+
+		app.logger.Get().Info("subscriber matching enabled",
+			"subscriberCount", len(app.config.GetEnabledSubscribers()),
+		)
+
+		// Set up subscriber-aware notifiers
+		if app.clients.Slack != nil {
+			slackAdapter := NewSlackSubscriberNotifierAdapter(app.clients.Slack)
+			processAlertUseCase.SetSlackSubscriberNotifier(slackAdapter)
+		}
+
+		if app.clients.PagerDuty != nil {
+			pagerDutyAdapter := NewPagerDutySubscriberNotifierAdapter(app.clients.PagerDuty)
+			processAlertUseCase.SetPagerDutySubscriberNotifier(pagerDutyAdapter)
+		}
+	}
+
 	app.useCases = &UseCases{
-		ProcessAlert: alert.NewProcessAlertUseCase(
-			app.alertRepo,
-			app.silenceRepo,
-			app.clients.Notifiers,
-			logger,
-			app.telemetry.Metrics,
-		),
+		ProcessAlert: processAlertUseCase,
 		SyncAck: ack.NewSyncAckUseCase(
 			app.alertRepo,
 			app.ackEventRepo,
@@ -32,6 +58,7 @@ func (app *Application) initializeUseCases() error {
 			logger,
 			app.telemetry.Metrics,
 		),
+		SubscriberMatcher: subscriberMatcher,
 	}
 
 	return nil

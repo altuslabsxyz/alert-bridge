@@ -1,4 +1,4 @@
-.PHONY: build run test clean docker-build docker-run lint fmt help
+.PHONY: build run test test-unit test-e2e test-e2e-docker clean docker-build docker-run lint fmt help
 
 # Variables
 BINARY_NAME=alert-bridge
@@ -14,9 +14,21 @@ build:
 run:
 	$(GO) run ./cmd/alert-bridge
 
-# Run tests
+# Run all tests (unit + e2e mock-based)
 test:
 	$(GO) test -v ./...
+
+# Run only unit tests (excludes e2e)
+test-unit:
+	$(GO) test -v ./internal/... ./cmd/...
+
+# Run mock-based e2e tests (fast, no Docker required)
+test-e2e:
+	$(GO) test -v ./test/e2e/... -timeout 60s
+
+# Run Docker-based e2e tests (comprehensive, requires Docker)
+test-e2e-docker:
+	./scripts/e2e-setup.sh
 
 # Run tests with coverage
 test-coverage:
@@ -70,17 +82,20 @@ dev:
 # Help
 help:
 	@echo "Available targets:"
-	@echo "  build          - Build the binary"
-	@echo "  run            - Run the application"
-	@echo "  test           - Run tests"
-	@echo "  test-coverage  - Run tests with coverage"
-	@echo "  clean          - Clean build artifacts"
-	@echo "  docker-build   - Build Docker image"
-	@echo "  docker-run     - Run Docker container"
-	@echo "  lint           - Run linter"
-	@echo "  fmt            - Format code"
-	@echo "  tidy           - Tidy dependencies"
-	@echo "  deps           - Download dependencies"
-	@echo "  mocks          - Generate mocks"
-	@echo "  dev            - Development mode with hot reload"
-	@echo "  help           - Show this help"
+	@echo "  build           - Build the binary"
+	@echo "  run             - Run the application"
+	@echo "  test            - Run all tests (unit + e2e mock-based)"
+	@echo "  test-unit       - Run only unit tests"
+	@echo "  test-e2e        - Run mock-based e2e tests (fast, no Docker)"
+	@echo "  test-e2e-docker - Run Docker-based e2e tests (comprehensive)"
+	@echo "  test-coverage   - Run tests with coverage"
+	@echo "  clean           - Clean build artifacts"
+	@echo "  docker-build    - Build Docker image"
+	@echo "  docker-run      - Run Docker container"
+	@echo "  lint            - Run linter"
+	@echo "  fmt             - Format code"
+	@echo "  tidy            - Tidy dependencies"
+	@echo "  deps            - Download dependencies"
+	@echo "  mocks           - Generate mocks"
+	@echo "  dev             - Development mode with hot reload"
+	@echo "  help            - Show this help"

@@ -3,6 +3,8 @@ package slack
 import (
 	"testing"
 	"time"
+
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/entity"
 )
 
 func TestFormatSlackTime(t *testing.T) {
@@ -77,4 +79,88 @@ func TestFormatSlackTime_DifferentTimezones(t *testing.T) {
 	if utcResult != jstResult {
 		t.Errorf("Same instant should produce same output.\nUTC: %s\nJST: %s", utcResult, jstResult)
 	}
+}
+
+func TestBuildUserMentions(t *testing.T) {
+	tests := []struct {
+		name    string
+		userIDs []string
+		want    string
+	}{
+		{
+			name:    "empty user list",
+			userIDs: []string{},
+			want:    "",
+		},
+		{
+			name:    "single user",
+			userIDs: []string{"U12345"},
+			want:    "<@U12345>",
+		},
+		{
+			name:    "multiple users",
+			userIDs: []string{"U12345", "U67890", "UABCDE"},
+			want:    "<@U12345> <@U67890> <@UABCDE>",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := BuildUserMentions(tt.userIDs)
+			if got != tt.want {
+				t.Errorf("BuildUserMentions() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBuildAlertMessageWithMentions(t *testing.T) {
+	builder := NewMessageBuilder(nil)
+
+	t.Run("message with mentions includes subscriber section", func(t *testing.T) {
+		alert := createTestAlert()
+		slackUserIDs := []string{"U12345", "U67890"}
+
+		blocks := builder.BuildAlertMessageWithMentions(alert, slackUserIDs)
+
+		// First block should be the mentions section
+		if len(blocks) == 0 {
+			t.Fatal("expected at least one block")
+		}
+
+		// Verify mentions section exists by checking block count is greater than without mentions
+		blocksWithoutMentions := builder.BuildAlertMessage(alert)
+		if len(blocks) <= len(blocksWithoutMentions) {
+			t.Errorf("expected more blocks with mentions (%d) than without (%d)", len(blocks), len(blocksWithoutMentions))
+		}
+	})
+
+	t.Run("message without mentions has no subscriber section", func(t *testing.T) {
+		alert := createTestAlert()
+
+		blocksWithEmpty := builder.BuildAlertMessageWithMentions(alert, []string{})
+		blocksWithNil := builder.BuildAlertMessageWithMentions(alert, nil)
+		blocksNormal := builder.BuildAlertMessage(alert)
+
+		// All should have the same number of blocks
+		if len(blocksWithEmpty) != len(blocksNormal) {
+			t.Errorf("empty mentions should produce same blocks as normal: got %d, want %d", len(blocksWithEmpty), len(blocksNormal))
+		}
+		if len(blocksWithNil) != len(blocksNormal) {
+			t.Errorf("nil mentions should produce same blocks as normal: got %d, want %d", len(blocksWithNil), len(blocksNormal))
+		}
+	})
+}
+
+func createTestAlert() *entity.Alert {
+	alert := entity.NewAlert(
+		"fingerprint123",
+		"TestAlert",
+		"instance-1",
+		"target-1",
+		"Test alert summary",
+		entity.SeverityWarning,
+	)
+	alert.FiredAt = time.Date(2024, 1, 21, 15, 0, 0, 0, time.UTC)
+	return alert
 }
