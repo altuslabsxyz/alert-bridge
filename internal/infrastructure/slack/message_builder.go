@@ -19,6 +19,31 @@ const (
 	colorAcked    = "#A78BFA" // Lavender - soft acknowledged
 )
 
+// Slack date format tokens for automatic timezone/locale conversion.
+// See: https://api.slack.com/reference/surfaces/formatting#date-formatting
+const (
+	SlackDateFull      = "{date} {time}"       // "January 21st, 2024 3:00 PM"
+	SlackDateShort     = "{date_short} {time}" // "Jan 21, 2024 3:00 PM"
+	SlackDateLong      = "{date_long} {time}"  // "Monday, January 21st, 2024 3:00 PM"
+	SlackTimeOnly      = "{time}"              // "3:00 PM"
+	SlackDateShortOnly = "{date_short}"        // "Jan 21, 2024"
+)
+
+// FormatSlackTime formats a time using Slack's date formatting syntax.
+// This enables automatic timezone conversion and locale-based translation
+// for each Slack user viewing the message.
+//
+// Example output for different users viewing the same timestamp:
+//   - Seoul user (KST, Korean): "2024년 1월 22일 오전 9:00"
+//   - LA user (PST, English): "Jan 21, 2024 4:00 PM"
+//   - London user (GMT, English): "22 Jan 2024 00:00"
+func FormatSlackTime(t time.Time, format string) string {
+	unix := t.Unix()
+	// Fallback text shown in contexts that don't support Slack formatting (e.g., email notifications)
+	fallback := t.UTC().Format("2006-01-02 15:04 UTC")
+	return fmt.Sprintf("<!date^%d^%s|%s>", unix, format, fallback)
+}
+
 // MessageBuilder constructs Slack Block Kit messages for alerts.
 type MessageBuilder struct {
 	silenceDurations []time.Duration
@@ -171,11 +196,12 @@ func (b *MessageBuilder) buildDetailsSection(alert *entity.Alert) *slack.Section
 }
 
 // buildTimelineContext creates a clean, minimal footer.
+// Uses Slack's date formatting for automatic timezone/locale conversion.
 func (b *MessageBuilder) buildTimelineContext(alert *entity.Alert) *slack.ContextBlock {
 	var elements []slack.MixedElement
 
-	// Fired time
-	firedAt := alert.FiredAt.Format("Jan 2 • 15:04")
+	// Fired time - uses Slack date formatting for automatic timezone conversion
+	firedAt := FormatSlackTime(alert.FiredAt, SlackDateShort)
 	elements = append(elements,
 		slack.NewTextBlockObject(slack.MarkdownType, firedAt, false, false))
 
