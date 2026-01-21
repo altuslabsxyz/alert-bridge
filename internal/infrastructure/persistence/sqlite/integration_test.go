@@ -8,9 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/altuslabsxyz/alert-bridge/internal/domain/entity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/entity"
 )
 
 // TestPersistenceAcrossRestart verifies that data survives database restart.

@@ -6,10 +6,11 @@ import (
 	"log"
 	"time"
 
-	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/config"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 	"github.com/slack-go/slack/socketmode"
+
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/config"
 )
 
 // Logger interface for structured logging.
