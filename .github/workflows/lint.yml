@@ -1,0 +1,44 @@
+# GitHub Actions Lint Workflow
+# Runs golangci-lint on PRs and pushes to main
+
+name: Lint
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: read  # Required for only-new-issues to work
+
+env:
+  GO_VERSION: '1.24'
+  GOLANGCI_LINT_VERSION: v2.1
+
+jobs:
+  golangci-lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for only-new-issues to work
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
+          args: --timeout=5m
+          # Only report new issues for PRs (reduces noise)
+          only-new-issues: true
