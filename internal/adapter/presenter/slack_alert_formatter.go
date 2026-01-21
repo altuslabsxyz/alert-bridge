@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/entity"
-	slackInfra "github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/slack"
-	slackUseCase "github.com/qj0r9j0vc2/alert-bridge/internal/usecase/slack"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/entity"
+	slackInfra "github.com/altuslabsxyz/alert-bridge/internal/infrastructure/slack"
+	slackUseCase "github.com/altuslabsxyz/alert-bridge/internal/usecase/slack"
 	"github.com/slack-go/slack"
 )
 

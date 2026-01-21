@@ -3,8 +3,8 @@ package alert
 import (
 	"context"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/entity"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/logger"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/entity"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/logger"
 )
 
 // Notifier defines the contract for sending alert notifications.

@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/entity"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/config"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/entity"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/config"
 )
 
 // setupBenchmarkDB creates a database connection for benchmarking.

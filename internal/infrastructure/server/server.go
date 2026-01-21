@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/config"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/slack"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/config"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/slack"
 )
 
 // Server represents the HTTP server with optional Socket Mode client.

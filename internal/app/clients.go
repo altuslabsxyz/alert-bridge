@@ -1,10 +1,10 @@
 package app
 
 import (
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/pagerduty"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/slack"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/usecase/ack"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/usecase/alert"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/pagerduty"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/slack"
+	"github.com/altuslabsxyz/alert-bridge/internal/usecase/ack"
+	"github.com/altuslabsxyz/alert-bridge/internal/usecase/alert"
 )
 
 // Clients holds all external integration clients

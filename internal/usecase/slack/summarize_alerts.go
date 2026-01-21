@@ -6,8 +6,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/entity"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/repository"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/entity"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/repository"
 )
 
 // SummarizeAlertsUseCase computes alert summary statistics.
