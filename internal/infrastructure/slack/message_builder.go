@@ -10,13 +10,13 @@ import (
 	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/entity"
 )
 
-// Severity color codes for visual distinction
+// Bright, modern color palette
 const (
-	colorCritical = "#E01E5A" // Red
-	colorWarning  = "#ECB22E" // Yellow/Orange
-	colorInfo     = "#36C5F0" // Blue
-	colorResolved = "#2EB67D" // Green
-	colorAcked    = "#9B59B6" // Purple
+	colorCritical = "#FF6B6B" // Coral Red - bright & urgent
+	colorWarning  = "#FFD93D" // Sunny Yellow - attention
+	colorInfo     = "#6BCB77" // Mint Green - calm info
+	colorResolved = "#4ECDC4" // Turquoise - fresh resolved
+	colorAcked    = "#A78BFA" // Lavender - soft acknowledged
 )
 
 // Slack date format tokens for automatic timezone/locale conversion.
@@ -79,34 +79,27 @@ func (b *MessageBuilder) BuildResolvedMessage(alert *entity.Alert) []slack.Block
 	return b.buildMessage(alert, false, false)
 }
 
-// buildMessage creates a Block Kit message with configurable button options.
+// buildMessage creates a clean, bright Block Kit message.
 func (b *MessageBuilder) buildMessage(alert *entity.Alert, showAckButton, showSilenceButton bool) []slack.Block {
 	var blocks []slack.Block
 
-	// Status banner with emoji and severity indicator
-	blocks = append(blocks, b.buildStatusBanner(alert))
-
-	// Alert name as header
+	// Clean header with emoji + name
+	emoji, _, _ := b.getStatusInfo(alert)
+	headerText := fmt.Sprintf("%s  %s", emoji, alert.Name)
 	blocks = append(blocks, slack.NewHeaderBlock(
-		slack.NewTextBlockObject(slack.PlainTextType, alert.Name, true, false),
+		slack.NewTextBlockObject(slack.PlainTextType, headerText, true, false),
 	))
 
-	// Summary section (if available)
+	// Summary (if available) - light and simple
 	if alert.Summary != "" {
 		blocks = append(blocks, slack.NewSectionBlock(
-			slack.NewTextBlockObject(slack.MarkdownType, fmt.Sprintf("_%s_", alert.Summary), false, false),
+			slack.NewTextBlockObject(slack.MarkdownType, alert.Summary, false, false),
 			nil, nil,
 		))
 	}
 
-	// Alert details in a compact format
-	blocks = append(blocks, b.buildDetailsSection(alert))
-
-	// Thin divider
-	blocks = append(blocks, slack.NewDividerBlock())
-
-	// Timeline context
-	blocks = append(blocks, b.buildTimelineContext(alert))
+	// Compact info line
+	blocks = append(blocks, b.buildCompactInfo(alert))
 
 	// Action buttons (configurable)
 	if showAckButton || showSilenceButton {
@@ -115,36 +108,52 @@ func (b *MessageBuilder) buildMessage(alert *entity.Alert, showAckButton, showSi
 		}
 	}
 
+	// Subtle footer
+	blocks = append(blocks, b.buildTimelineContext(alert))
+
 	return blocks
 }
 
-// buildStatusBanner creates a visual status banner at the top.
-func (b *MessageBuilder) buildStatusBanner(alert *entity.Alert) *slack.SectionBlock {
-	emoji, statusText, _ := b.getStatusInfo(alert)
+// buildCompactInfo creates a single-line info display - clean and minimal.
+func (b *MessageBuilder) buildCompactInfo(alert *entity.Alert) *slack.ContextBlock {
+	var elements []slack.MixedElement
 
-	// Create a simple status line with circle emoji
-	statusLine := fmt.Sprintf("%s *%s* | %s", emoji, statusText, b.getSeverityBadge(alert))
+	// Status
+	_, statusText, _ := b.getStatusInfo(alert)
+	elements = append(elements,
+		slack.NewTextBlockObject(slack.MarkdownType,
+			fmt.Sprintf("*%s*", statusText), false, false))
 
-	return slack.NewSectionBlock(
-		slack.NewTextBlockObject(slack.MarkdownType, statusLine, false, false),
-		nil,
-		nil,
-	)
+	// Instance
+	if alert.Instance != "" {
+		elements = append(elements,
+			slack.NewTextBlockObject(slack.MarkdownType,
+				fmt.Sprintf("`%s`", alert.Instance), false, false))
+	}
+
+	// Target
+	if alert.Target != "" {
+		elements = append(elements,
+			slack.NewTextBlockObject(slack.MarkdownType,
+				fmt.Sprintf("`%s`", alert.Target), false, false))
+	}
+
+	return slack.NewContextBlock("", elements...)
 }
 
 // getStatusInfo returns emoji, text, and color for the alert status.
 func (b *MessageBuilder) getStatusInfo(alert *entity.Alert) (emoji, text, color string) {
 	switch {
 	case alert.IsResolved():
-		return ":large_green_circle:", "RESOLVED", colorResolved
+		return "🟢", "Resolved", colorResolved
 	case alert.IsAcked():
-		return ":large_purple_circle:", "ACKNOWLEDGED", colorAcked
+		return "👀", "Acknowledged", colorAcked
 	case alert.Severity == entity.SeverityCritical:
-		return ":large_red_circle:", "CRITICAL", colorCritical
+		return "🔴", "Critical", colorCritical
 	case alert.Severity == entity.SeverityWarning:
-		return ":large_yellow_circle:", "WARNING", colorWarning
+		return "🟡", "Warning", colorWarning
 	default:
-		return ":large_blue_circle:", "INFO", colorInfo
+		return "🔵", "Info", colorInfo
 	}
 }
 
@@ -186,40 +195,27 @@ func (b *MessageBuilder) buildDetailsSection(alert *entity.Alert) *slack.Section
 	return slack.NewSectionBlock(nil, fields, nil)
 }
 
-// buildTimelineContext creates the timeline context with fired/acked/resolved times.
-// Uses Slack's date formatting for automatic timezone/locale conversion per user.
+// buildTimelineContext creates a clean, minimal footer.
+// Uses Slack's date formatting for automatic timezone/locale conversion.
 func (b *MessageBuilder) buildTimelineContext(alert *entity.Alert) *slack.ContextBlock {
 	var elements []slack.MixedElement
 
 	// Fired time - uses Slack date formatting for automatic timezone conversion
 	firedAt := FormatSlackTime(alert.FiredAt, SlackDateShort)
 	elements = append(elements,
-		slack.NewTextBlockObject(slack.MarkdownType,
-			fmt.Sprintf("Fired: *%s*", firedAt), false, false))
+		slack.NewTextBlockObject(slack.MarkdownType, firedAt, false, false))
 
-	// Acknowledged info
+	// Acknowledged by
 	if alert.IsAcked() && alert.AckedBy != "" {
-		ackedAt := "unknown"
-		if alert.AckedAt != nil {
-			ackedAt = FormatSlackTime(*alert.AckedAt, SlackTimeOnly)
-		}
 		elements = append(elements,
 			slack.NewTextBlockObject(slack.MarkdownType,
-				fmt.Sprintf(" • Acked by *%s* at %s", alert.AckedBy, ackedAt), false, false))
-	}
-
-	// Resolved info
-	if alert.IsResolved() && alert.ResolvedAt != nil {
-		resolvedAt := FormatSlackTime(*alert.ResolvedAt, SlackTimeOnly)
-		elements = append(elements,
-			slack.NewTextBlockObject(slack.MarkdownType,
-				fmt.Sprintf(" • Resolved: *%s*", resolvedAt), false, false))
+				fmt.Sprintf("by %s", alert.AckedBy), false, false))
 	}
 
 	return slack.NewContextBlock("", elements...)
 }
 
-// buildActionButtons creates the interactive action buttons.
+// buildActionButtons creates action buttons.
 func (b *MessageBuilder) buildActionButtons(alertID string, showAck, showSilence bool) *slack.ActionBlock {
 	var elements []slack.BlockElement
 
@@ -230,11 +226,10 @@ func (b *MessageBuilder) buildActionButtons(alertID string, showAck, showSilence
 			alertID,
 			slack.NewTextBlockObject(slack.PlainTextType, "Acknowledge", true, false),
 		)
-		ackBtn.Style = slack.StylePrimary
 		elements = append(elements, ackBtn)
 	}
 
-	// Silence duration dropdown
+	// Silence dropdown
 	if showSilence {
 		options := make([]*slack.OptionBlockObject, len(b.silenceDurations))
 		for i, d := range b.silenceDurations {
@@ -284,11 +279,11 @@ func (b *MessageBuilder) formatDuration(d time.Duration) string {
 func (b *MessageBuilder) formatState(state entity.AlertState) string {
 	switch state {
 	case entity.StateActive:
-		return ":large_red_circle: Firing"
+		return "🔴 Firing"
 	case entity.StateAcked:
-		return ":large_purple_circle: Acknowledged"
+		return "👀 Acknowledged"
 	case entity.StateResolved:
-		return ":large_green_circle: Resolved"
+		return "🟢 Resolved"
 	default:
 		return string(state)
 	}

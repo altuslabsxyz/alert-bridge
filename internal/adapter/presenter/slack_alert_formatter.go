@@ -127,17 +127,17 @@ func (f *SlackAlertFormatter) formatAlert(alert *entity.Alert) *slack.SectionBlo
 	)
 }
 
-// getSeverityMarker returns a text marker for the severity level.
+// getSeverityMarker returns a circle emoji for the severity level.
 func (f *SlackAlertFormatter) getSeverityMarker(severity entity.AlertSeverity) string {
 	switch severity {
 	case entity.SeverityCritical:
-		return ":large_red_circle:"
+		return "🔴"
 	case entity.SeverityWarning:
-		return ":large_yellow_circle:"
+		return "🟡"
 	case entity.SeverityInfo:
-		return ":large_blue_circle:"
+		return "🔵"
 	default:
-		return ":white_circle:"
+		return "⚪"
 	}
 }
 
@@ -212,9 +212,9 @@ func (f *SlackAlertFormatter) FormatAlertSummary(summary *entity.AlertSummary, p
 
 	// Severity breakdown section
 	severityText := "*Alerts by Severity:*\n"
-	severityText += fmt.Sprintf(":large_red_circle: Critical: %d\n", summary.CriticalCount())
-	severityText += fmt.Sprintf(":large_yellow_circle: Warning: %d\n", summary.WarningCount())
-	severityText += fmt.Sprintf(":large_blue_circle: Info: %d", summary.InfoCount())
+	severityText += fmt.Sprintf("🔴 Critical: %d\n", summary.CriticalCount())
+	severityText += fmt.Sprintf("🟡 Warning: %d\n", summary.WarningCount())
+	severityText += fmt.Sprintf("🔵 Info: %d", summary.InfoCount())
 
 	blocks = append(blocks, slack.NewSectionBlock(
 		slack.NewTextBlockObject(slack.MarkdownType, severityText, false, false),
