@@ -101,3 +101,48 @@ func (r *AckEventRepository) FindLatestByAlertID(ctx context.Context, alertID st
 	eventCopy := *latest
 	return &eventCopy, nil
 }
+
+// GetTopAcknowledgers returns users with the most acknowledgments.
+// Limit specifies the maximum number of users to return.
+func (r *AckEventRepository) GetTopAcknowledgers(ctx context.Context, limit int) ([]*entity.UserAckCount, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if limit <= 0 {
+		limit = 10
+	}
+
+	// Count acknowledgments per user (by email)
+	userCounts := make(map[string]*entity.UserAckCount)
+	for _, event := range r.events {
+		email := event.UserEmail
+		if email == "" {
+			email = event.UserID // fallback to user ID
+		}
+		if _, ok := userCounts[email]; !ok {
+			userCounts[email] = &entity.UserAckCount{
+				UserName:  event.UserName,
+				UserEmail: event.UserEmail,
+				Count:     0,
+			}
+		}
+		userCounts[email].Count++
+	}
+
+	// Convert to slice and sort by count descending
+	results := make([]*entity.UserAckCount, 0, len(userCounts))
+	for _, uc := range userCounts {
+		results = append(results, uc)
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Count > results[j].Count
+	})
+
+	// Limit results
+	if len(results) > limit {
+		results = results[:limit]
+	}
+
+	return results, nil
+}

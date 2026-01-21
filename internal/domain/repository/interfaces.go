@@ -62,6 +62,11 @@ type AckEventRepository interface {
 	// FindLatestByAlertID retrieves the most recent ack event for an alert.
 	// Returns nil, nil if none found.
 	FindLatestByAlertID(ctx context.Context, alertID string) (*entity.AckEvent, error)
+
+	// GetTopAcknowledgers returns users with the most acknowledgments.
+	// Limit specifies the maximum number of users to return.
+	// Returns empty slice if no acknowledgments found.
+	GetTopAcknowledgers(ctx context.Context, limit int) ([]*entity.UserAckCount, error)
 }
 
 // SilenceRepository stores silence/snooze rules.

@@ -179,6 +179,48 @@ func (r *AckEventRepository) FindLatestByAlertID(ctx context.Context, alertID st
 	return &event, nil
 }
 
+// GetTopAcknowledgers returns users with the most acknowledgments.
+// Limit specifies the maximum number of users to return.
+func (r *AckEventRepository) GetTopAcknowledgers(ctx context.Context, limit int) ([]*entity.UserAckCount, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+
+	query := `
+		SELECT user_name, user_email, COUNT(*) as ack_count
+		FROM ack_events
+		GROUP BY user_email
+		ORDER BY ack_count DESC
+		LIMIT ?
+	`
+
+	rows, err := r.db.Replica().QueryContext(ctx, query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("querying top acknowledgers: %w", err)
+	}
+	defer rows.Close()
+
+	results := make([]*entity.UserAckCount, 0)
+	for rows.Next() {
+		var userName, userEmail sql.NullString
+		var count int
+		if err := rows.Scan(&userName, &userEmail, &count); err != nil {
+			return nil, fmt.Errorf("scanning top acknowledger row: %w", err)
+		}
+		results = append(results, &entity.UserAckCount{
+			UserName:  stringValue(userName),
+			UserEmail: stringValue(userEmail),
+			Count:     count,
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating top acknowledger rows: %w", err)
+	}
+
+	return results, nil
+}
+
 // scanAckEvents is a helper function to scan multiple ack events from query results.
 func (r *AckEventRepository) scanAckEvents(rows *sql.Rows) ([]*entity.AckEvent, error) {
 	events := make([]*entity.AckEvent, 0)

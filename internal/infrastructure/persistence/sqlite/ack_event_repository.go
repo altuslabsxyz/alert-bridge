@@ -86,6 +86,53 @@ func (r *AckEventRepository) FindLatestByAlertID(ctx context.Context, alertID st
 	return scanAckEvent(row)
 }
 
+// GetTopAcknowledgers returns users with the most acknowledgments.
+// Limit specifies the maximum number of users to return.
+func (r *AckEventRepository) GetTopAcknowledgers(ctx context.Context, limit int) ([]*entity.UserAckCount, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+
+	rows, err := r.db.getExecutor(ctx).QueryContext(ctx, `
+		SELECT user_name, user_email, COUNT(*) as ack_count
+		FROM ack_events
+		GROUP BY user_email
+		ORDER BY ack_count DESC
+		LIMIT ?
+	`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("query top acknowledgers: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*entity.UserAckCount
+	for rows.Next() {
+		var (
+			userName  string
+			userEmail string
+			count     int
+		)
+		if err := rows.Scan(&userName, &userEmail, &count); err != nil {
+			return nil, fmt.Errorf("scan top acknowledger row: %w", err)
+		}
+		results = append(results, &entity.UserAckCount{
+			UserName:  userName,
+			UserEmail: userEmail,
+			Count:     count,
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration: %w", err)
+	}
+
+	if results == nil {
+		results = []*entity.UserAckCount{}
+	}
+
+	return results, nil
+}
+
 // scanAckEvent scans a single row into an AckEvent entity.
 func scanAckEvent(row *sql.Row) (*entity.AckEvent, error) {
 	var (
