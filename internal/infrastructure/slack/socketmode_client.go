@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/config"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/config"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 	"github.com/slack-go/slack/socketmode"

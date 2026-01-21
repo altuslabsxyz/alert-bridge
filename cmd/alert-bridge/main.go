@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/app"
+	"github.com/altuslabsxyz/alert-bridge/internal/app"
 )
 
 func main() {

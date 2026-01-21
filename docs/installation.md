@@ -11,7 +11,7 @@
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/qj0r9j0vc2/alert-bridge.git
+git clone https://github.com/altuslabsxyz/alert-bridge.git
 cd alert-bridge
 ```
 

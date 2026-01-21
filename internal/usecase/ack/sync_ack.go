@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/entity"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/logger"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/repository"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/observability"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/entity"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/logger"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/repository"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/observability"
 )
 
 // SyncAckInput contains acknowledgment details from any source.

@@ -377,7 +377,7 @@ If issues persist after trying these solutions:
 
 3. **Review Slack API Logs**: https://api.slack.com/apps/YOUR_APP_ID/event-subscriptions
 
-4. **File an Issue**: https://github.com/qj0r9j0vc2/alert-bridge/issues
+4. **File an Issue**: https://github.com/altuslabsxyz/alert-bridge/issues
 
 **Include in bug reports**:
 - Full error message and stack trace
