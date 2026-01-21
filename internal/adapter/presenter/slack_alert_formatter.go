@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/entity"
+	slackInfra "github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/slack"
 	slackUseCase "github.com/qj0r9j0vc2/alert-bridge/internal/usecase/slack"
 	"github.com/slack-go/slack"
 )
@@ -74,8 +75,8 @@ func (f *SlackAlertFormatter) FormatAlertStatus(alerts []*entity.Alert, severity
 		}
 	}
 
-	// Footer context
-	footerText := fmt.Sprintf("Last updated: %s", time.Now().Format("Jan 02, 2006 at 3:04 PM"))
+	// Footer context - uses Slack date formatting for automatic timezone/locale conversion
+	footerText := fmt.Sprintf("Last updated: %s", slackInfra.FormatSlackTime(time.Now(), slackInfra.SlackDateShort))
 	blocks = append(blocks, slack.NewContextBlock(
 		"",
 		slack.NewTextBlockObject(slack.MarkdownType, footerText, false, false),
@@ -272,8 +273,8 @@ func (f *SlackAlertFormatter) FormatAlertSummary(summary *entity.AlertSummary, p
 		))
 	}
 
-	// Footer context
-	footerText := fmt.Sprintf("Summary generated: %s", time.Now().Format("Jan 02, 2006 at 3:04 PM"))
+	// Footer context - uses Slack date formatting for automatic timezone/locale conversion
+	footerText := fmt.Sprintf("Summary generated: %s", slackInfra.FormatSlackTime(time.Now(), slackInfra.SlackDateShort))
 	blocks = append(blocks, slack.NewContextBlock(
 		"",
 		slack.NewTextBlockObject(slack.MarkdownType, footerText, false, false),
@@ -366,8 +367,8 @@ func (f *SlackAlertFormatter) FormatSilenceResult(result *slackUseCase.SilenceRe
 		))
 	}
 
-	// Footer context
-	footerText := fmt.Sprintf("Updated: %s", time.Now().Format("Jan 02, 2006 at 3:04 PM"))
+	// Footer context - uses Slack date formatting for automatic timezone/locale conversion
+	footerText := fmt.Sprintf("Updated: %s", slackInfra.FormatSlackTime(time.Now(), slackInfra.SlackDateShort))
 	blocks = append(blocks, slack.NewContextBlock(
 		"",
 		slack.NewTextBlockObject(slack.MarkdownType, footerText, false, false),
@@ -395,7 +396,7 @@ func (f *SlackAlertFormatter) formatSilenceDetails(silence *entity.SilenceMark, 
 		text += fmt.Sprintf("Remaining: %s\n", f.formatDuration(remaining))
 	}
 
-	text += fmt.Sprintf("Expires: %s\n", silence.EndAt.Format("Jan 02, 2006 at 3:04 PM"))
+	text += fmt.Sprintf("Expires: %s\n", slackInfra.FormatSlackTime(silence.EndAt, slackInfra.SlackDateShort))
 	text += fmt.Sprintf("Created by: %s", silence.CreatedBy)
 
 	return slack.NewSectionBlock(
