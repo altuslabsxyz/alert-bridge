@@ -111,6 +111,50 @@ logging:
   # Log format (json, text)
   format: json
 
+# Subscriber configuration for alert routing and notifications
+# Subscribers are matched to alerts based on label filters.
+# - Slack: All matching subscribers are mentioned at once in the message.
+# - PagerDuty: Subscribers are called sequentially by match score (most matches first).
+subscribers:
+  # Example: Jinu is responsible for Axelar chain critical alerts
+  - name: jinu
+    # Slack member ID (Profile -> More -> Copy member ID)
+    slack_user_id: ${SLACK_USER_JINU}
+    # PagerDuty user ID (People -> Users -> click user -> ID in URL)
+    pagerduty_user_id: ${PAGERDUTY_USER_JINU}
+    # Optional: per-subscriber routing key for different PagerDuty services
+    # pagerduty_routing_key: ${PAGERDUTY_ROUTING_KEY_JINU}
+    # Label filters - alert must match ALL labels (AND logic)
+    labels:
+      chain: axelar
+      severity: critical
+    enabled: true
+
+  # Example: Jeseon handles Osmosis chain alerts
+  - name: jeseon
+    slack_user_id: ${SLACK_USER_JESEON}
+    pagerduty_user_id: ${PAGERDUTY_USER_JESEON}
+    labels:
+      chain: osmosis
+    enabled: true
+
+  # Example: DevOps team handles infrastructure alerts
+  - name: devops
+    slack_user_id: ${SLACK_USER_DEVOPS}
+    pagerduty_user_id: ${PAGERDUTY_USER_DEVOPS}
+    labels:
+      team: infrastructure
+      env: production
+    enabled: true
+
+  # Example: Fallback subscriber for all critical alerts
+  - name: oncall
+    slack_user_id: ${SLACK_USER_ONCALL}
+    pagerduty_user_id: ${PAGERDUTY_USER_ONCALL}
+    labels:
+      severity: critical
+    enabled: true
+
 # Observability configuration
 observability:
   metrics:

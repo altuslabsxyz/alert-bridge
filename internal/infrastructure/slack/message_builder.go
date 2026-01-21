@@ -64,32 +64,63 @@ func NewMessageBuilder(silenceDurations []time.Duration) *MessageBuilder {
 	}
 }
 
+// BuildUserMentions creates a formatted string of Slack user mentions.
+// Example output: "<@U123> <@U456> <@U789>"
+func BuildUserMentions(userIDs []string) string {
+	if len(userIDs) == 0 {
+		return ""
+	}
+
+	var mentions []string
+	for _, id := range userIDs {
+		mentions = append(mentions, fmt.Sprintf("<@%s>", id))
+	}
+	return strings.Join(mentions, " ")
+}
+
 // BuildAlertMessage creates a Block Kit message for an alert.
 func (b *MessageBuilder) BuildAlertMessage(alert *entity.Alert) []slack.Block {
-	return b.buildMessage(alert, true, true)
+	return b.buildMessage(alert, true, true, nil)
+}
+
+// BuildAlertMessageWithMentions creates a Block Kit message for an alert
+// with subscriber mentions at the top.
+func (b *MessageBuilder) BuildAlertMessageWithMentions(alert *entity.Alert, slackUserIDs []string) []slack.Block {
+	return b.buildMessage(alert, true, true, slackUserIDs)
 }
 
 // BuildAckedMessage creates a message for an acknowledged alert with silence button still available.
 func (b *MessageBuilder) BuildAckedMessage(alert *entity.Alert) []slack.Block {
-	return b.buildMessage(alert, false, true)
+	return b.buildMessage(alert, false, true, nil)
 }
 
 // BuildResolvedMessage creates a message for a resolved alert (no buttons).
 func (b *MessageBuilder) BuildResolvedMessage(alert *entity.Alert) []slack.Block {
-	return b.buildMessage(alert, false, false)
+	return b.buildMessage(alert, false, false, nil)
 }
 
 // buildMessage creates a Block Kit message with configurable button options.
-func (b *MessageBuilder) buildMessage(alert *entity.Alert, showAckButton, showSilenceButton bool) []slack.Block {
+// slackUserIDs is optional - if provided, mentions will be added at the top of the message.
+func (b *MessageBuilder) buildMessage(alert *entity.Alert, showAckButton, showSilenceButton bool, slackUserIDs []string) []slack.Block {
 	var blocks []slack.Block
 
-	// Status banner with emoji and severity indicator
-	blocks = append(blocks, b.buildStatusBanner(alert))
+	// Add user mentions section at the top if any subscribers matched
+	if len(slackUserIDs) > 0 {
+		mentions := BuildUserMentions(slackUserIDs)
+		blocks = append(blocks, slack.NewSectionBlock(
+			slack.NewTextBlockObject(slack.MarkdownType,
+				fmt.Sprintf(":bell: *Alert Subscribers:* %s", mentions), false, false),
+			nil, nil,
+		))
+	}
 
-	// Alert name as header
-	blocks = append(blocks, slack.NewHeaderBlock(
-		slack.NewTextBlockObject(slack.PlainTextType, alert.Name, true, false),
-	))
+	// Status banner with emoji and severity indicator, followed by header
+	blocks = append(blocks,
+		b.buildStatusBanner(alert),
+		slack.NewHeaderBlock(
+			slack.NewTextBlockObject(slack.PlainTextType, alert.Name, true, false),
+		),
+	)
 
 	// Summary section (if available)
 	if alert.Summary != "" {
@@ -99,14 +130,12 @@ func (b *MessageBuilder) buildMessage(alert *entity.Alert, showAckButton, showSi
 		))
 	}
 
-	// Alert details in a compact format
-	blocks = append(blocks, b.buildDetailsSection(alert))
-
-	// Thin divider
-	blocks = append(blocks, slack.NewDividerBlock())
-
-	// Timeline context
-	blocks = append(blocks, b.buildTimelineContext(alert))
+	// Alert details, divider, and timeline context
+	blocks = append(blocks,
+		b.buildDetailsSection(alert),
+		slack.NewDividerBlock(),
+		b.buildTimelineContext(alert),
+	)
 
 	// Action buttons (configurable)
 	if showAckButton || showSilenceButton {
@@ -278,18 +307,4 @@ func (b *MessageBuilder) formatDuration(d time.Duration) string {
 		return "1 day"
 	}
 	return fmt.Sprintf("%d days", days)
-}
-
-// formatState formats the alert state for display.
-func (b *MessageBuilder) formatState(state entity.AlertState) string {
-	switch state {
-	case entity.StateActive:
-		return ":large_red_circle: Firing"
-	case entity.StateAcked:
-		return ":large_purple_circle: Acknowledged"
-	case entity.StateResolved:
-		return ":large_green_circle: Resolved"
-	default:
-		return string(state)
-	}
 }
