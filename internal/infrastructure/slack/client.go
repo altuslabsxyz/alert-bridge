@@ -10,8 +10,8 @@ import (
 
 	"github.com/slack-go/slack"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/entity"
-	domainerrors "github.com/qj0r9j0vc2/alert-bridge/internal/domain/errors"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/entity"
+	domainerrors "github.com/altuslabsxyz/alert-bridge/internal/domain/errors"
 )
 
 // Client wraps the Slack API client with domain-specific operations.
@@ -43,6 +43,25 @@ func NewClient(botToken, channelID string, silenceDurations []time.Duration, api
 // Returns the message ID in the format "channel:timestamp".
 func (c *Client) Notify(ctx context.Context, alert *entity.Alert) (string, error) {
 	blocks := c.messageBuilder.BuildAlertMessage(alert)
+
+	options := []slack.MsgOption{
+		slack.MsgOptionBlocks(blocks...),
+	}
+
+	channelID, timestamp, err := c.api.PostMessageContext(ctx, c.channelID, options...)
+	if err != nil {
+		return "", categorizeSlackError(err, "posting slack message")
+	}
+
+	// Return channel:timestamp as message ID
+	return fmt.Sprintf("%s:%s", channelID, timestamp), nil
+}
+
+// NotifyWithMentions sends an alert to Slack with user mentions.
+// All matching subscribers are mentioned at once in the message.
+// Returns the message ID in the format "channel:timestamp".
+func (c *Client) NotifyWithMentions(ctx context.Context, alert *entity.Alert, slackUserIDs []string) (string, error) {
+	blocks := c.messageBuilder.BuildAlertMessageWithMentions(alert, slackUserIDs)
 
 	options := []slack.MsgOption{
 		slack.MsgOptionBlocks(blocks...),

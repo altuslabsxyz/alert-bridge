@@ -189,4 +189,4 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/qj0r9j0vc2/alert-bridge
+        - github.com/altuslabsxyz/alert-bridge

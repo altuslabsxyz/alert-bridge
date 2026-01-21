@@ -299,7 +299,7 @@ gh run watch
 gh release view v1.0.0
 
 # Test released binaries
-curl -LO https://github.com/qj0r9j0vc2/alert-bridge/releases/download/v1.0.0/alert-bridge_1.0.0_linux_amd64.tar.gz
+curl -LO https://github.com/altuslabsxyz/alert-bridge/releases/download/v1.0.0/alert-bridge_1.0.0_linux_amd64.tar.gz
 tar xzf alert-bridge_1.0.0_linux_amd64.tar.gz
 ./alert-bridge --version
 

@@ -5,10 +5,10 @@ import (
 	"io"
 	"time"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/repository"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/config"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/observability"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/server"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/repository"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/config"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/observability"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/server"
 )
 
 // dbPinger provides database connectivity check for readiness probes.

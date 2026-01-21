@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/adapter/dto"
+	"github.com/altuslabsxyz/alert-bridge/internal/adapter/dto"
 )
 
 // AlertmanagerAlert is an alias for dto.AlertmanagerAlert for external use

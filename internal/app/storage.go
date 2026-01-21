@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/repository"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/persistence/memory"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/persistence/mysql"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/persistence/sqlite"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/repository"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/persistence/memory"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/persistence/mysql"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/persistence/sqlite"
 )
 
 func (app *Application) initializeStorage() error {

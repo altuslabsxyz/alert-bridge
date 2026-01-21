@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/repository"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/config"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/repository"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/config"
 )
 
 // Repositories holds all MySQL repository implementations.

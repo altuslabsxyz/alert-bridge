@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/entity"
-	"github.com/qj0r9j0vc2/alert-bridge/test/e2e/harness"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/entity"
+	"github.com/altuslabsxyz/alert-bridge/test/e2e/harness"
 )
 
 // TestAlertCreationSlack tests that alerts are delivered to Slack notifier

@@ -3,8 +3,8 @@ package handler
 import (
 	"net/http"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/logger"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/config"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/logger"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/config"
 )
 
 // ReloadHandler handles configuration reload requests.

@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/repository"
 	_ "modernc.org/sqlite"
+
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/repository"
 )
 
 //go:embed migrations/*.sql

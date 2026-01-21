@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/entity"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/repository"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/config"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/entity"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/repository"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/config"
 )
 
 // TestAlertPersistence_AcrossRestart simulates an application restart

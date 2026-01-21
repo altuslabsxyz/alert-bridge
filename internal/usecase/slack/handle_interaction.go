@@ -8,12 +8,12 @@ import (
 
 	slackLib "github.com/slack-go/slack"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/adapter/dto"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/entity"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/repository"
-	slackInfra "github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/slack"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/usecase/ack"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/usecase/alert"
+	"github.com/altuslabsxyz/alert-bridge/internal/adapter/dto"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/entity"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/repository"
+	slackInfra "github.com/altuslabsxyz/alert-bridge/internal/infrastructure/slack"
+	"github.com/altuslabsxyz/alert-bridge/internal/usecase/ack"
+	"github.com/altuslabsxyz/alert-bridge/internal/usecase/alert"
 )
 
 // HandleInteractionUseCase processes Slack button clicks and other interactions.

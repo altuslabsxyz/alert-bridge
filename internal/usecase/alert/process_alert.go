@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/adapter/dto"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/entity"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/repository"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/observability"
+	"github.com/altuslabsxyz/alert-bridge/internal/adapter/dto"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/entity"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/repository"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/service"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/observability"
 )
 
 // ProcessAlertUseCase handles incoming alerts from Alertmanager.
@@ -18,6 +19,11 @@ type ProcessAlertUseCase struct {
 	notifiers   []Notifier
 	logger      Logger
 	metrics     *observability.Metrics
+
+	// Subscriber matching support (optional)
+	subscriberMatcher *service.SubscriberMatcher
+	slackNotifier     SlackSubscriberNotifier
+	pagerDutyNotifier PagerDutySubscriberNotifier
 }
 
 // NewProcessAlertUseCase creates a new ProcessAlertUseCase with dependencies.
@@ -35,6 +41,22 @@ func NewProcessAlertUseCase(
 		logger:      logger,
 		metrics:     metrics,
 	}
+}
+
+// SetSubscriberMatcher sets the subscriber matcher for label-based subscriber matching.
+// This enables @mentions in Slack and sequential PagerDuty escalation.
+func (uc *ProcessAlertUseCase) SetSubscriberMatcher(matcher *service.SubscriberMatcher) {
+	uc.subscriberMatcher = matcher
+}
+
+// SetSlackSubscriberNotifier sets the Slack notifier that supports subscriber mentions.
+func (uc *ProcessAlertUseCase) SetSlackSubscriberNotifier(notifier SlackSubscriberNotifier) {
+	uc.slackNotifier = notifier
+}
+
+// SetPagerDutySubscriberNotifier sets the PagerDuty notifier that supports subscriber escalation.
+func (uc *ProcessAlertUseCase) SetPagerDutySubscriberNotifier(notifier PagerDutySubscriberNotifier) {
+	uc.pagerDutyNotifier = notifier
 }
 
 // Execute processes an incoming alert.
@@ -185,8 +207,55 @@ func (uc *ProcessAlertUseCase) findFiringAlert(alerts []*entity.Alert) *entity.A
 
 // sendNotifications sends notifications to all configured notifiers.
 func (uc *ProcessAlertUseCase) sendNotifications(ctx context.Context, alert *entity.Alert, output *dto.ProcessAlertOutput) {
+	// Get matching subscribers if subscriber matcher is configured
+	var slackUserIDs []string
+	var pdSubscribers []service.UseCaseMatchedSubscriber
+
+	if uc.subscriberMatcher != nil {
+		// Get Slack subscribers (all matched at once for mentions)
+		slackMatched := uc.subscriberMatcher.MatchAlertForSlackUseCase(alert)
+		slackUserIDs = service.GetSlackUserIDsFromUseCase(slackMatched)
+
+		if len(slackMatched) > 0 {
+			names := make([]string, len(slackMatched))
+			for i, m := range slackMatched {
+				names[i] = m.Name
+			}
+			uc.logger.Info("matched subscribers for Slack",
+				"alertID", alert.ID,
+				"subscribers", names,
+			)
+		}
+
+		// Get PagerDuty subscribers (ordered by match count for sequential escalation)
+		pdSubscribers = uc.subscriberMatcher.MatchAlertForPagerDutyUseCase(alert)
+
+		if len(pdSubscribers) > 0 {
+			names := make([]string, len(pdSubscribers))
+			for i, m := range pdSubscribers {
+				names[i] = fmt.Sprintf("%s(%d)", m.Name, m.MatchCount)
+			}
+			uc.logger.Info("matched subscribers for PagerDuty",
+				"alertID", alert.ID,
+				"subscribers", names,
+			)
+		}
+	}
+
 	for _, notifier := range uc.notifiers {
-		messageID, err := notifier.Notify(ctx, alert)
+		var messageID string
+		var err error
+
+		switch notifier.Name() {
+		case "slack":
+			messageID, err = uc.sendSlackNotification(ctx, alert, slackUserIDs)
+		case "pagerduty":
+			messageID, err = uc.sendPagerDutyNotification(ctx, alert, pdSubscribers)
+		default:
+			// Use generic notifier for other notification types
+			messageID, err = notifier.Notify(ctx, alert)
+		}
+
 		if err != nil {
 			uc.logger.Error("notification failed",
 				"notifier", notifier.Name(),
@@ -210,6 +279,78 @@ func (uc *ProcessAlertUseCase) sendNotifications(ctx context.Context, alert *ent
 			"messageID", messageID,
 		)
 	}
+}
+
+// sendSlackNotification sends a Slack notification with optional user mentions.
+func (uc *ProcessAlertUseCase) sendSlackNotification(ctx context.Context, alert *entity.Alert, slackUserIDs []string) (string, error) {
+	// Use subscriber-aware notifier if available and we have matching subscribers
+	if uc.slackNotifier != nil && len(slackUserIDs) > 0 {
+		return uc.slackNotifier.NotifyWithMentions(ctx, alert, slackUserIDs)
+	}
+
+	// Fallback to the generic Slack notifier from the notifiers list
+	for _, notifier := range uc.notifiers {
+		if notifier.Name() == "slack" {
+			return notifier.Notify(ctx, alert)
+		}
+	}
+
+	return "", fmt.Errorf("slack notifier not found")
+}
+
+// sendPagerDutyNotification sends PagerDuty notifications to subscribers sequentially.
+func (uc *ProcessAlertUseCase) sendPagerDutyNotification(ctx context.Context, alert *entity.Alert, subscribers []service.UseCaseMatchedSubscriber) (string, error) {
+	// Use subscriber-aware notifier if available and we have matching subscribers
+	if uc.pagerDutyNotifier != nil && len(subscribers) > 0 {
+		// Convert to PagerDuty notification format
+		pdNotifications := make([]PagerDutySubscriberNotification, len(subscribers))
+		for i, sub := range subscribers {
+			pdNotifications[i] = PagerDutySubscriberNotification{
+				SubscriberName:  sub.Name,
+				PagerDutyUserID: sub.PagerDutyUserID,
+				RoutingKey:      sub.PagerDutyRoutingKey,
+				MatchCount:      sub.MatchCount,
+			}
+		}
+
+		// Send to each subscriber sequentially (most matches first)
+		results := uc.pagerDutyNotifier.NotifySubscribersSequentially(ctx, alert, pdNotifications)
+
+		// Log results for each subscriber
+		var firstDedupKey string
+		for name, result := range results {
+			if len(result) > 6 && result[:6] == "error:" {
+				uc.logger.Error("PagerDuty subscriber notification failed",
+					"alertID", alert.ID,
+					"subscriber", name,
+					"error", result,
+				)
+			} else {
+				uc.logger.Info("PagerDuty subscriber notified",
+					"alertID", alert.ID,
+					"subscriber", name,
+					"dedupKey", result,
+				)
+				if firstDedupKey == "" {
+					firstDedupKey = result
+				}
+			}
+		}
+
+		// Return the first dedup key for tracking
+		if firstDedupKey != "" {
+			return firstDedupKey, nil
+		}
+	}
+
+	// Fallback to the generic PagerDuty notifier from the notifiers list
+	for _, notifier := range uc.notifiers {
+		if notifier.Name() == "pagerduty" {
+			return notifier.Notify(ctx, alert)
+		}
+	}
+
+	return "", fmt.Errorf("pagerduty notifier not found")
 }
 
 // updateNotifications updates existing notifications for resolved/acked alerts.

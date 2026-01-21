@@ -15,12 +15,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/adapter/dto"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/adapter/handler"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/repository"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/persistence/memory"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/usecase/alert"
-	"github.com/qj0r9j0vc2/alert-bridge/test/e2e/mocks"
+	"github.com/altuslabsxyz/alert-bridge/internal/adapter/dto"
+	"github.com/altuslabsxyz/alert-bridge/internal/adapter/handler"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/repository"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/persistence/memory"
+	"github.com/altuslabsxyz/alert-bridge/internal/usecase/alert"
+	"github.com/altuslabsxyz/alert-bridge/test/e2e/mocks"
 )
 
 // TestHarness manages the in-process test environment

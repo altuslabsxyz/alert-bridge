@@ -1,10 +1,11 @@
 package handler
 
 import (
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/slack"
 	slackSDK "github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 	"github.com/slack-go/slack/socketmode"
+
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/slack"
 )
 
 // SocketModeHandler wraps the Socket Mode client and routes events to use cases.

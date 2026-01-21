@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/adapter/handler"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/adapter/handler/middleware"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/config"
-	"github.com/qj0r9j0vc2/alert-bridge/internal/infrastructure/observability"
+	"github.com/altuslabsxyz/alert-bridge/internal/adapter/handler"
+	"github.com/altuslabsxyz/alert-bridge/internal/adapter/handler/middleware"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/config"
+	"github.com/altuslabsxyz/alert-bridge/internal/infrastructure/observability"
 )
 
 // Handlers holds all HTTP handlers.

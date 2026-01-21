@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/entity"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/entity"
 )
 
 // RecordedNotification represents a notification captured by the mock

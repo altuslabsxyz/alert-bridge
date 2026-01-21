@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 
-	"github.com/qj0r9j0vc2/alert-bridge/internal/domain/repository"
+	"github.com/altuslabsxyz/alert-bridge/internal/domain/repository"
 )
 
 // nullString converts a string to sql.NullString.
