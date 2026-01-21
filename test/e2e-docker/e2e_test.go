@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/qj0r9j0vc2/alert-bridge/test/e2e-docker/helpers"
+	"github.com/altuslabsxyz/alert-bridge/test/e2e-docker/helpers"
 )
 
 // TestMain sets up and tears down the E2E test environment
