@@ -10,10 +10,10 @@ func TestFormatSlackTime(t *testing.T) {
 	testTime := time.Date(2024, 1, 21, 15, 30, 45, 0, time.UTC)
 
 	tests := []struct {
-		name     string
-		time     time.Time
-		format   string
-		wantFmt  string // expected format pattern in output
+		name    string
+		time    time.Time
+		format  string
+		wantFmt string // expected format pattern in output
 	}{
 		{
 			name:    "date short format",
