@@ -130,13 +130,13 @@ func (f *SlackAlertFormatter) formatAlert(alert *entity.Alert) *slack.SectionBlo
 func (f *SlackAlertFormatter) getSeverityMarker(severity entity.AlertSeverity) string {
 	switch severity {
 	case entity.SeverityCritical:
-		return "[CRITICAL]"
+		return ":large_red_circle:"
 	case entity.SeverityWarning:
-		return "[WARNING]"
+		return ":large_yellow_circle:"
 	case entity.SeverityInfo:
-		return "[INFO]"
+		return ":large_blue_circle:"
 	default:
-		return "[UNKNOWN]"
+		return ":white_circle:"
 	}
 }
 
@@ -211,9 +211,9 @@ func (f *SlackAlertFormatter) FormatAlertSummary(summary *entity.AlertSummary, p
 
 	// Severity breakdown section
 	severityText := "*Alerts by Severity:*\n"
-	severityText += fmt.Sprintf("[CRITICAL] %d\n", summary.CriticalCount())
-	severityText += fmt.Sprintf("[WARNING] %d\n", summary.WarningCount())
-	severityText += fmt.Sprintf("[INFO] %d", summary.InfoCount())
+	severityText += fmt.Sprintf(":large_red_circle: Critical: %d\n", summary.CriticalCount())
+	severityText += fmt.Sprintf(":large_yellow_circle: Warning: %d\n", summary.WarningCount())
+	severityText += fmt.Sprintf(":large_blue_circle: Info: %d", summary.InfoCount())
 
 	blocks = append(blocks, slack.NewSectionBlock(
 		slack.NewTextBlockObject(slack.MarkdownType, severityText, false, false),
