@@ -57,6 +57,25 @@ func (c *Client) Notify(ctx context.Context, alert *entity.Alert) (string, error
 	return fmt.Sprintf("%s:%s", channelID, timestamp), nil
 }
 
+// NotifyWithMentions sends an alert to Slack with user mentions.
+// All matching subscribers are mentioned at once in the message.
+// Returns the message ID in the format "channel:timestamp".
+func (c *Client) NotifyWithMentions(ctx context.Context, alert *entity.Alert, slackUserIDs []string) (string, error) {
+	blocks := c.messageBuilder.BuildAlertMessageWithMentions(alert, slackUserIDs)
+
+	options := []slack.MsgOption{
+		slack.MsgOptionBlocks(blocks...),
+	}
+
+	channelID, timestamp, err := c.api.PostMessageContext(ctx, c.channelID, options...)
+	if err != nil {
+		return "", categorizeSlackError(err, "posting slack message")
+	}
+
+	// Return channel:timestamp as message ID
+	return fmt.Sprintf("%s:%s", channelID, timestamp), nil
+}
+
 // UpdateMessage updates an existing Slack message.
 func (c *Client) UpdateMessage(ctx context.Context, messageID string, alert *entity.Alert) error {
 	channelID, timestamp, err := parseMessageID(messageID)

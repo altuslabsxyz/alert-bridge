@@ -17,6 +17,22 @@ import (
 	domainerrors "github.com/altuslabsxyz/alert-bridge/internal/domain/errors"
 )
 
+// SubscriberNotification represents a notification to be sent for a specific subscriber.
+type SubscriberNotification struct {
+	// SubscriberName is the human-readable name of the subscriber.
+	SubscriberName string
+
+	// PagerDutyUserID is the PagerDuty user ID to target.
+	PagerDutyUserID string
+
+	// RoutingKey is the routing key to use for this subscriber.
+	// If empty, the default routing key will be used.
+	RoutingKey string
+
+	// MatchCount indicates how many labels matched for priority ordering.
+	MatchCount int
+}
+
 // Client wraps the PagerDuty API client with domain-specific operations.
 // Implements both alert.Notifier and ack.AckSyncer interfaces.
 type Client struct {
@@ -100,6 +116,78 @@ func (c *Client) Notify(ctx context.Context, alert *entity.Alert) (string, error
 	}
 
 	// Return dedup key as the incident identifier
+	return resp.DedupKey, nil
+}
+
+// NotifySubscribersSequentially sends PagerDuty alerts to multiple subscribers
+// in sequence, ordered by match count (most matches first).
+// Each subscriber may have their own routing key, or use the default.
+// Returns a map of subscriber names to their dedup keys (or error messages).
+func (c *Client) NotifySubscribersSequentially(ctx context.Context, alert *entity.Alert, subscribers []SubscriberNotification) map[string]string {
+	results := make(map[string]string)
+
+	for _, sub := range subscribers {
+		routingKey := sub.RoutingKey
+		if routingKey == "" {
+			routingKey = c.routingKey
+		}
+
+		if routingKey == "" {
+			results[sub.SubscriberName] = "error: no routing key configured"
+			continue
+		}
+
+		dedupKey, err := c.notifyWithRoutingKey(ctx, alert, routingKey, sub.PagerDutyUserID)
+		if err != nil {
+			results[sub.SubscriberName] = fmt.Sprintf("error: %v", err)
+		} else {
+			results[sub.SubscriberName] = dedupKey
+		}
+	}
+
+	return results
+}
+
+// notifyWithRoutingKey sends a PagerDuty event with a specific routing key.
+func (c *Client) notifyWithRoutingKey(ctx context.Context, alert *entity.Alert, routingKey, targetUserID string) (string, error) {
+	details := c.buildDetails(alert)
+
+	// Add target user ID to details if specified
+	if targetUserID != "" {
+		details["target_user_id"] = targetUserID
+	}
+
+	// Build the event
+	event := &pagerduty.V2Event{
+		RoutingKey: routingKey,
+		Action:     "trigger",
+		DedupKey:   c.buildDedupKey(alert),
+		Payload: &pagerduty.V2Payload{
+			Summary:   c.buildSummary(alert),
+			Source:    alert.Instance,
+			Severity:  c.mapSeverity(alert.Severity),
+			Timestamp: alert.FiredAt.Format("2006-01-02T15:04:05.000Z"),
+			Component: alert.Target,
+			Group:     alert.GetLabel("job"),
+			Class:     alert.Name,
+			Details:   details,
+		},
+	}
+
+	// Send the event
+	var resp *pagerduty.V2EventResponse
+	var err error
+
+	if c.eventsAPIURL != "" {
+		resp, err = c.sendEventHTTP(ctx, event)
+	} else {
+		resp, err = pagerduty.ManageEventWithContext(ctx, *event)
+	}
+
+	if err != nil {
+		return "", categorizePagerDutyError(err, "sending pagerduty event")
+	}
+
 	return resp.DedupKey, nil
 }
 
