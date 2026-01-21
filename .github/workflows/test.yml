@@ -1,5 +1,8 @@
 # GitHub Actions Test Workflow
 # Runs tests with coverage on PRs and pushes to main
+# - For PRs: Tests only affected packages (changed files + dependents)
+# - For main: Runs full test suite
+# - Enforces minimum coverage threshold
 
 name: Test
 
@@ -16,6 +19,7 @@ permissions:
 
 env:
   GO_VERSION: '1.24'
+  COVERAGE_THRESHOLD: 60  # Minimum coverage percentage required
 
 jobs:
   test:
@@ -24,6 +28,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required to get full history for diff
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -34,7 +40,92 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
-      - name: Run tests with coverage
+      - name: Get changed packages
+        id: changed
+        if: github.event_name == 'pull_request'
         run: |
-          go test -v -race -coverprofile=coverage.out -covermode=atomic $(go list ./... | grep -v /test/e2e)
-          go tool cover -func=coverage.out | tail -1
+          # Get list of changed Go files
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- '*.go' | grep -v '_test.go$' | grep -v '/test/' || true)
+
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "No Go source files changed"
+            echo "packages=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          # Get packages for changed files
+          CHANGED_PKGS=""
+          for file in $CHANGED_FILES; do
+            if [ -f "$file" ]; then
+              pkg=$(dirname "$file")
+              CHANGED_PKGS="$CHANGED_PKGS ./$pkg"
+            fi
+          done
+
+          # Deduplicate and find dependent packages
+          if [ -n "$CHANGED_PKGS" ]; then
+            UNIQUE_PKGS=$(echo "$CHANGED_PKGS" | tr ' ' '\n' | sort -u | tr '\n' ' ')
+            echo "Changed packages: $UNIQUE_PKGS"
+
+            # Find all packages that depend on changed packages
+            ALL_PKGS=$(go list ./... | grep -v '/test/e2e')
+            AFFECTED_PKGS="$UNIQUE_PKGS"
+
+            for pkg in $UNIQUE_PKGS; do
+              # Find packages that import this package
+              PKG_PATH=$(go list -f '{{.ImportPath}}' $pkg 2>/dev/null || true)
+              if [ -n "$PKG_PATH" ]; then
+                DEPENDENTS=$(echo "$ALL_PKGS" | xargs -I {} sh -c "go list -f '{{range .Imports}}{{.}} {{end}}' {} 2>/dev/null | grep -q '$PKG_PATH' && echo {}" || true)
+                AFFECTED_PKGS="$AFFECTED_PKGS $DEPENDENTS"
+              fi
+            done
+
+            # Deduplicate final list
+            FINAL_PKGS=$(echo "$AFFECTED_PKGS" | tr ' ' '\n' | sort -u | grep -v '^$' | tr '\n' ' ')
+            echo "Affected packages (including dependents): $FINAL_PKGS"
+            echo "packages=$FINAL_PKGS" >> $GITHUB_OUTPUT
+          else
+            echo "packages=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run tests (PR - affected packages only)
+        if: github.event_name == 'pull_request' && steps.changed.outputs.packages != ''
+        run: |
+          echo "Testing affected packages: ${{ steps.changed.outputs.packages }}"
+          go test -v -race -coverprofile=coverage.out -covermode=atomic ${{ steps.changed.outputs.packages }}
+
+      - name: Run tests (full suite)
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && steps.changed.outputs.packages == '')
+        run: |
+          echo "Running full test suite"
+          go test -v -race -coverprofile=coverage.out -covermode=atomic $(go list ./... | grep -v '/test/e2e')
+
+      - name: Check coverage threshold
+        if: always() && hashFiles('coverage.out') != ''
+        run: |
+          # Display coverage summary
+          echo "=== Coverage Summary ==="
+          go tool cover -func=coverage.out
+
+          # Extract total coverage percentage
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          echo ""
+          echo "Total coverage: ${COVERAGE}%"
+          echo "Minimum threshold: ${COVERAGE_THRESHOLD}%"
+
+          # Check if coverage meets threshold
+          if [ -z "$COVERAGE" ]; then
+            echo "::warning::Could not determine coverage percentage"
+            exit 0
+          fi
+
+          # Compare coverage against threshold (using bc for float comparison)
+          if echo "$COVERAGE < $COVERAGE_THRESHOLD" | bc -l | grep -q 1; then
+            echo "::error::Coverage ${COVERAGE}% is below the minimum threshold of ${COVERAGE_THRESHOLD}%"
+            exit 1
+          fi
+
+          echo "::notice::Coverage ${COVERAGE}% meets the minimum threshold of ${COVERAGE_THRESHOLD}%"
