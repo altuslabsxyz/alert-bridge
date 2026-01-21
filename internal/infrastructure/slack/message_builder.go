@@ -71,9 +71,9 @@ func BuildUserMentions(userIDs []string) string {
 		return ""
 	}
 
-	var mentions []string
-	for _, id := range userIDs {
-		mentions = append(mentions, fmt.Sprintf("<@%s>", id))
+	mentions := make([]string, len(userIDs))
+	for i, id := range userIDs {
+		mentions[i] = fmt.Sprintf("<@%s>", id)
 	}
 	return strings.Join(mentions, " ")
 }

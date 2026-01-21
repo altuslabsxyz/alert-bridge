@@ -49,7 +49,7 @@ func (app *Application) initializeUseCases() error {
 	}
 
 	app.useCases = &UseCases{
-		ProcessAlert:      processAlertUseCase,
+		ProcessAlert: processAlertUseCase,
 		SyncAck: ack.NewSyncAckUseCase(
 			app.alertRepo,
 			app.ackEventRepo,
