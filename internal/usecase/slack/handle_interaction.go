@@ -73,6 +73,8 @@ func (uc *HandleInteractionUseCase) Execute(ctx context.Context, input dto.Slack
 		return uc.handleAck(ctx, alertID, input, userEmail)
 	case "silence":
 		return uc.handleSilence(ctx, alertID, input, userEmail)
+	case "resolve":
+		return uc.handleResolve(ctx, alertID, input, userEmail)
 	default:
 		return nil, fmt.Errorf("unknown action type: %s", actionType)
 	}
@@ -171,10 +173,12 @@ func (uc *HandleInteractionUseCase) handleSilence(ctx context.Context, alertID s
 	}
 
 	// Post thread reply about silence
+	// Uses Slack's date formatting for automatic timezone conversion per user
+	silenceEndAt := slackInfra.FormatSlackTime(silence.EndAt, slackInfra.SlackDateShort)
 	silenceMsg := fmt.Sprintf("🔕 Silenced for %s by %s (until %s)",
 		formatDuration(duration),
 		input.UserName,
-		silence.EndAt.Format("Jan 2, 15:04 MST"),
+		silenceEndAt,
 	)
 	if err := uc.slackClient.PostThreadReply(ctx, messageID, silenceMsg); err != nil {
 		uc.logger.Error("failed to post silence notification",
@@ -188,6 +192,89 @@ func (uc *HandleInteractionUseCase) handleSilence(ctx context.Context, alertID s
 		Message:      fmt.Sprintf("Silenced for %s", formatDuration(duration)),
 		SilenceID:    silence.ID,
 		SilenceEndAt: &silence.EndAt,
+	}, nil
+}
+
+// handleResolve handles the manual resolve action from Slack.
+// This action:
+// 1. Marks the alert as resolved (with who resolved it)
+// 2. Cancels any active silences for this alert
+// 3. Updates the Slack message to show resolved state
+func (uc *HandleInteractionUseCase) handleResolve(ctx context.Context, alertID string, input dto.SlackInteractionInput, userEmail string) (*dto.SlackInteractionOutput, error) {
+	// Load the alert
+	alertEntity, err := uc.alertRepo.FindByID(ctx, alertID)
+	if err != nil {
+		return nil, fmt.Errorf("finding alert: %w", err)
+	}
+	if alertEntity == nil {
+		return nil, entity.ErrAlertNotFound
+	}
+
+	// Check if already resolved
+	if alertEntity.IsResolved() {
+		return &dto.SlackInteractionOutput{
+			Success: true,
+			Message: "Alert is already resolved",
+		}, nil
+	}
+
+	// Mark the alert as resolved by this user
+	now := time.Now().UTC()
+	alertEntity.ResolveBy(input.UserName, now)
+
+	// Save the alert
+	if err := uc.alertRepo.Update(ctx, alertEntity); err != nil {
+		return nil, fmt.Errorf("updating alert: %w", err)
+	}
+
+	// Cancel any active silences for this alert's fingerprint
+	silences, err := uc.silenceRepo.FindByFingerprint(ctx, alertEntity.Fingerprint)
+	if err != nil {
+		uc.logger.Warn("failed to find active silences",
+			"fingerprint", alertEntity.Fingerprint,
+			"error", err,
+		)
+	} else {
+		for _, silence := range silences {
+			if silence.IsActive() {
+				silence.Cancel()
+				if err := uc.silenceRepo.Update(ctx, silence); err != nil {
+					uc.logger.Warn("failed to cancel silence",
+						"silenceID", silence.ID,
+						"error", err,
+					)
+				}
+			}
+		}
+	}
+
+	// Update Slack message to show resolved state
+	messageID := fmt.Sprintf("%s:%s", input.ChannelID, input.MessageTS)
+	if err := uc.slackClient.UpdateMessage(ctx, messageID, alertEntity); err != nil {
+		uc.logger.Error("failed to update Slack message",
+			"messageID", messageID,
+			"error", err,
+		)
+	}
+
+	// Post thread reply about resolution
+	resolvedAt := slackInfra.FormatSlackTime(now, slackInfra.SlackTimeOnly)
+	resolveMsg := fmt.Sprintf("✅ Resolved by %s at %s", input.UserName, resolvedAt)
+	if err := uc.slackClient.PostThreadReply(ctx, messageID, resolveMsg); err != nil {
+		uc.logger.Error("failed to post resolve notification",
+			"messageID", messageID,
+			"error", err,
+		)
+	}
+
+	uc.logger.Info("alert manually resolved from Slack",
+		"alertID", alertID,
+		"resolvedBy", input.UserName,
+	)
+
+	return &dto.SlackInteractionOutput{
+		Success: true,
+		Message: fmt.Sprintf("Alert resolved by %s", input.UserName),
 	}, nil
 }
 

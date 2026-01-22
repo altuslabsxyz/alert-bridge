@@ -80,28 +80,35 @@ func BuildUserMentions(userIDs []string) string {
 
 // BuildAlertMessage creates a Block Kit message for an alert.
 func (b *MessageBuilder) BuildAlertMessage(alert *entity.Alert) []slack.Block {
-	return b.buildMessage(alert, true, true, nil)
+	return b.buildMessage(alert, true, true, false, nil)
 }
 
 // BuildAlertMessageWithMentions creates a Block Kit message for an alert
 // with subscriber mentions at the top.
 func (b *MessageBuilder) BuildAlertMessageWithMentions(alert *entity.Alert, slackUserIDs []string) []slack.Block {
-	return b.buildMessage(alert, true, true, slackUserIDs)
+	return b.buildMessage(alert, true, true, false, slackUserIDs)
 }
 
-// BuildAckedMessage creates a message for an acknowledged alert with silence button still available.
+// BuildAckedMessage creates a message for an acknowledged alert with Resolve button.
 func (b *MessageBuilder) BuildAckedMessage(alert *entity.Alert) []slack.Block {
-	return b.buildMessage(alert, false, true, nil)
+	return b.buildMessage(alert, false, true, true, nil)
 }
 
 // BuildResolvedMessage creates a message for a resolved alert (no buttons).
 func (b *MessageBuilder) BuildResolvedMessage(alert *entity.Alert) []slack.Block {
-	return b.buildMessage(alert, false, false, nil)
+	return b.buildMessage(alert, false, false, false, nil)
 }
 
-// buildMessage creates a clean, bright Block Kit message with configurable button options.
+// buildMessage creates a clean, structured Block Kit message with configurable button options.
+// The layout follows:
+// - Status header with emoji and severity (e.g., "🟢 RESOLVED | WARNING")
+// - Alert name
+// - Summary/description
+// - Details fields (Instance, Target, ID)
+// - Action buttons
+// - Timeline footer
 // slackUserIDs is optional - if provided, mentions will be added at the top of the message.
-func (b *MessageBuilder) buildMessage(alert *entity.Alert, showAckButton, showSilenceButton bool, slackUserIDs []string) []slack.Block {
+func (b *MessageBuilder) buildMessage(alert *entity.Alert, showAckButton, showSilenceButton, showResolveButton bool, slackUserIDs []string) []slack.Block {
 	var blocks []slack.Block
 
 	// Add user mentions section at the top if any subscribers matched
@@ -114,14 +121,22 @@ func (b *MessageBuilder) buildMessage(alert *entity.Alert, showAckButton, showSi
 		))
 	}
 
-	// Clean header with emoji + name
-	emoji, _, _ := b.getStatusInfo(alert)
-	headerText := fmt.Sprintf("%s  %s", emoji, alert.Name)
-	blocks = append(blocks, slack.NewHeaderBlock(
-		slack.NewTextBlockObject(slack.PlainTextType, headerText, true, false),
+	// Status header with emoji and severity badge
+	// Format: "🟢 RESOLVED | WARNING" or "🔴 FIRING | CRITICAL"
+	emoji, statusText, _ := b.getStatusInfo(alert)
+	severityBadge := strings.ToUpper(string(alert.Severity))
+	statusHeader := fmt.Sprintf("%s *%s* | %s", emoji, statusText, severityBadge)
+	blocks = append(blocks, slack.NewSectionBlock(
+		slack.NewTextBlockObject(slack.MarkdownType, statusHeader, false, false),
+		nil, nil,
 	))
 
-	// Summary (if available) - light and simple
+	// Alert name as header
+	blocks = append(blocks, slack.NewHeaderBlock(
+		slack.NewTextBlockObject(slack.PlainTextType, alert.Name, true, false),
+	))
+
+	// Summary/description (if available)
 	if alert.Summary != "" {
 		blocks = append(blocks, slack.NewSectionBlock(
 			slack.NewTextBlockObject(slack.MarkdownType, alert.Summary, false, false),
@@ -129,20 +144,52 @@ func (b *MessageBuilder) buildMessage(alert *entity.Alert, showAckButton, showSi
 		))
 	}
 
-	// Compact info line
-	blocks = append(blocks, b.buildCompactInfo(alert))
+	// Details fields section
+	blocks = append(blocks, b.buildDetailsFields(alert))
 
 	// Action buttons (configurable)
-	if showAckButton || showSilenceButton {
-		if actionBlock := b.buildActionButtons(alert.ID, showAckButton, showSilenceButton); actionBlock != nil {
+	if showAckButton || showSilenceButton || showResolveButton {
+		if actionBlock := b.buildActionButtons(alert.ID, showAckButton, showSilenceButton, showResolveButton); actionBlock != nil {
 			blocks = append(blocks, actionBlock)
 		}
 	}
 
-	// Subtle footer
+	// Timeline footer
 	blocks = append(blocks, b.buildTimelineContext(alert))
 
 	return blocks
+}
+
+// buildDetailsFields creates field blocks for Instance, Target, and ID.
+func (b *MessageBuilder) buildDetailsFields(alert *entity.Alert) *slack.SectionBlock {
+	var fields []*slack.TextBlockObject
+
+	// Instance
+	if alert.Instance != "" {
+		fields = append(fields,
+			slack.NewTextBlockObject(slack.MarkdownType,
+				fmt.Sprintf("*Instance*\n`%s`", alert.Instance), false, false))
+	}
+
+	// Target
+	if alert.Target != "" {
+		fields = append(fields,
+			slack.NewTextBlockObject(slack.MarkdownType,
+				fmt.Sprintf("*Target*\n`%s`", alert.Target), false, false))
+	}
+
+	// Fingerprint/ID (shortened for display)
+	if alert.Fingerprint != "" {
+		fp := alert.Fingerprint
+		if len(fp) > 12 {
+			fp = fp[:12] + "..."
+		}
+		fields = append(fields,
+			slack.NewTextBlockObject(slack.MarkdownType,
+				fmt.Sprintf("*ID*\n`%s`", fp), false, false))
+	}
+
+	return slack.NewSectionBlock(nil, fields, nil)
 }
 
 // buildCompactInfo creates a single-line info display - clean and minimal.
@@ -226,28 +273,45 @@ func (b *MessageBuilder) buildDetailsSection(alert *entity.Alert) *slack.Section
 	return slack.NewSectionBlock(nil, fields, nil)
 }
 
-// buildTimelineContext creates a clean, minimal footer.
+// buildTimelineContext creates a clean, minimal footer with timeline information.
 // Uses Slack's date formatting for automatic timezone/locale conversion.
+// Format: "Fired: Jan 22, 10:31 • Acked: 10:45 by user • Resolved: 10:51 by user"
 func (b *MessageBuilder) buildTimelineContext(alert *entity.Alert) *slack.ContextBlock {
-	var elements []slack.MixedElement
+	var parts []string
 
 	// Fired time - uses Slack date formatting for automatic timezone conversion
 	firedAt := FormatSlackTime(alert.FiredAt, SlackDateShort)
-	elements = append(elements,
-		slack.NewTextBlockObject(slack.MarkdownType, firedAt, false, false))
+	parts = append(parts, fmt.Sprintf("*Fired:* %s", firedAt))
 
-	// Acknowledged by
-	if alert.IsAcked() && alert.AckedBy != "" {
-		elements = append(elements,
-			slack.NewTextBlockObject(slack.MarkdownType,
-				fmt.Sprintf("by %s", alert.AckedBy), false, false))
+	// Acknowledged info
+	if alert.IsAcked() && alert.AckedAt != nil {
+		ackedAt := FormatSlackTime(*alert.AckedAt, SlackTimeOnly)
+		if alert.AckedBy != "" {
+			parts = append(parts, fmt.Sprintf("*Acked:* %s by %s", ackedAt, alert.AckedBy))
+		} else {
+			parts = append(parts, fmt.Sprintf("*Acked:* %s", ackedAt))
+		}
 	}
 
-	return slack.NewContextBlock("", elements...)
+	// Resolved info
+	if alert.IsResolved() && alert.ResolvedAt != nil {
+		resolvedAt := FormatSlackTime(*alert.ResolvedAt, SlackTimeOnly)
+		if alert.ResolvedBy != "" {
+			parts = append(parts, fmt.Sprintf("*Resolved:* %s by %s", resolvedAt, alert.ResolvedBy))
+		} else {
+			parts = append(parts, fmt.Sprintf("*Resolved:* %s", resolvedAt))
+		}
+	}
+
+	// Join with bullet separator
+	timelineText := strings.Join(parts, " • ")
+
+	return slack.NewContextBlock("",
+		slack.NewTextBlockObject(slack.MarkdownType, timelineText, false, false))
 }
 
 // buildActionButtons creates action buttons.
-func (b *MessageBuilder) buildActionButtons(alertID string, showAck, showSilence bool) *slack.ActionBlock {
+func (b *MessageBuilder) buildActionButtons(alertID string, showAck, showSilence, showResolve bool) *slack.ActionBlock {
 	var elements []slack.BlockElement
 
 	// Acknowledge button
@@ -258,6 +322,17 @@ func (b *MessageBuilder) buildActionButtons(alertID string, showAck, showSilence
 			slack.NewTextBlockObject(slack.PlainTextType, "Acknowledge", true, false),
 		)
 		elements = append(elements, ackBtn)
+	}
+
+	// Resolve button (shown after ack, replaces ack button)
+	if showResolve {
+		resolveBtn := slack.NewButtonBlockElement(
+			fmt.Sprintf("resolve_%s", alertID),
+			alertID,
+			slack.NewTextBlockObject(slack.PlainTextType, "Resolve", true, false),
+		)
+		resolveBtn.Style = slack.StylePrimary
+		elements = append(elements, resolveBtn)
 	}
 
 	// Silence dropdown

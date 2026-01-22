@@ -76,6 +76,9 @@ type Alert struct {
 	// ResolvedAt is when the alert was resolved.
 	ResolvedAt *time.Time
 
+	// ResolvedBy identifies who manually resolved the alert (from Slack).
+	ResolvedBy string
+
 	// CreatedAt is when this record was created.
 	CreatedAt time.Time
 
@@ -126,6 +129,14 @@ func (a *Alert) Acknowledge(by string, at time.Time) error {
 func (a *Alert) Resolve(at time.Time) {
 	a.State = StateResolved
 	a.ResolvedAt = &at
+	a.UpdatedAt = at
+}
+
+// ResolveBy marks the alert as manually resolved by a specific user.
+func (a *Alert) ResolveBy(by string, at time.Time) {
+	a.State = StateResolved
+	a.ResolvedAt = &at
+	a.ResolvedBy = by
 	a.UpdatedAt = at
 }
 
